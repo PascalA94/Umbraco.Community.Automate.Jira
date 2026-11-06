@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <Title>Jira connector for Umbraco Automate</Title>
+    <Description>Jira Cloud connection and actions for Umbraco Automate. Work in progress, not yet functional.</Description>
+    <PackageReadmeFile>docs\README.md</PackageReadmeFile>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <StaticWebAssetBasePath>App_Plugins/UmbracoCommunityAutomateJira</StaticWebAssetBasePath>
+    <!-- Razor SDK auto-includes root-level JSON as Content, which collides with the
+         explicit include of the generated appsettings-schema JSON below. -->
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+  </PropertyGroup>
+
+  <!-- Same toggle as HQ's Slack add-on, off by default: set -p:UseProjectReferences=true and
+       -p:AutomateSourcePath=<checkout of umbraco/Umbraco.Automate>/ to build against local Automate source. -->
+  <PropertyGroup>
+    <UseProjectReferences Condition="'$(UseProjectReferences)' == ''">false</UseProjectReferences>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UseProjectReferences)' == 'true'">
+    <ProjectReference Include="$(AutomateSourcePath)Umbraco.Automate\src\Umbraco.Automate.Core\Umbraco.Automate.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseProjectReferences)' != 'true'">
+    <PackageReference Include="Umbraco.Automate.Core" />
+  </ItemGroup>
+
+  <!-- Automate.Core's nuspec accepts these CMS floors on every release but enforces none of them,
+       so they are referenced directly (and the ranges stay closed). -->
+  <ItemGroup>
+    <PackageReference Include="Umbraco.Cms.Core" />
+    <PackageReference Include="Umbraco.Cms.Infrastructure" />
+    <!-- The Markdown description and comment format (design 7.5). Range per line in Directory.Build.props. -->
+    <PackageReference Include="Markdig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+    <PackageReference Include="Umbraco.JsonSchema.Extensions" PrivateAssets="all" />
+    <!-- CVE pins (Directory.Packages.props): build and audit only, not consumer dependencies. -->
+    <PackageReference Include="MessagePack" PrivateAssets="all" />
+    <PackageReference Include="OpenTelemetry.Api" PrivateAssets="all" />
+    <PackageReference Include="System.Security.Cryptography.Xml" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umbraco.Community.Automate.Jira.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="docs" />
+    <None Include="..\..\assets\logo-128.png" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+  <!-- Ship buildTransitive props so consuming sites' CopyUmbracoJsonSchemaFiles target
+       (from Umbraco.Cms.Targets) discovers the schema and copies it into the project. -->
+  <ItemGroup>
+    <Content Include="buildTransitive\**" PackagePath="buildTransitive" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_JiraJsonSchemaReference>appsettings-schema.Umbraco.Community.Automate.Jira.json</_JiraJsonSchemaReference>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="$(_JiraJsonSchemaReference)" PackagePath="" Visible="false" />
+    <Clean Include="$(_JiraJsonSchemaReference)" />
+  </ItemGroup>
+
+  <!-- Generate the appsettings JSON schema on build (and before consumers copy it). -->
+  <Target Name="GenerateAppsettingsSchema" BeforeTargets="Build;CopyUmbracoJsonSchemaFiles" Inputs="$(TargetPath)" Outputs="$(_JiraJsonSchemaReference)">
+    <Message Text="Generating $(_JiraJsonSchemaReference)" Importance="high" />
+    <JsonSchemaGenerate AssemblyPath="$(TargetPath)" TypeName="UmbracoCommunityAutomateJiraSchema" OutputPath="$(_JiraJsonSchemaReference)" IncludeObsoleteProperties="false" />
+    <ItemGroup>
+      <FileWrites Include="$(_JiraJsonSchemaReference)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Package-ID reservation (plan Task 5): with -p:JiraIdReservation=true the 0.0.1-alpha ships an
+       empty assembly, so it registers no Automate aliases before they are frozen at beta. -->
+  <ItemGroup Condition="'$(JiraIdReservation)' == 'true'">
+    <Compile Remove="**/*.cs" />
+    <Compile Include="UmbracoCommunityAutomateJiraSchema.cs" />
+  </ItemGroup>
+</Project>

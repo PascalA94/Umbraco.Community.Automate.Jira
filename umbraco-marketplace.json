@@ -1,0 +1,20 @@
+{
+    "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+    "AuthorDetails": {
+        "Name": "Pascal Meyer",
+        "Description": "Pascal Meyer",
+        "Url": "https://github.com/PascalA94"
+    },
+    "Category": "Automation",
+    "LicenseTypes": ["Free"],
+    "DocumentationUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira",
+    "IssueTrackerUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira/issues",
+    "PackageType": "Package",
+    "RelatedPackages": [
+        {
+            "PackageId": "Umbraco.Automate",
+            "Description": "Core automation system for Umbraco CMS"
+        }
+    ],
+    "Tags": ["umbraco", "automate", "automation", "jira", "atlassian"]
+}

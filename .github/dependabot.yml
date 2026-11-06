@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # The Automate and CMS floors are portfolio decisions held in Directory.Build.props properties,
+  # so Dependabot cannot and should not bump them; those bumps are manual (runbook).
+  # A bump that does land needs both lines' lock files regenerated before the floor leg passes.
+  - package-ecosystem: nuget
+    directories:
+      - "/"
+      - "/src/*"
+      - "/tests/*"
+      - "/demo/*"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

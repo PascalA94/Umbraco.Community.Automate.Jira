@@ -1,0 +1,93 @@
+<Project>
+  <!--
+    One codebase, two Umbraco Automate lines. -p:AutomateMajor=17|18 picks the dependency set,
+    the closed version ranges, the package version and the AUTOMATE_17 / AUTOMATE_18 constant.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AutomateMajor Condition="'$(AutomateMajor)' == ''">18</AutomateMajor>
+    <AutomateFloat Condition="'$(AutomateFloat)' == ''">false</AutomateFloat>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(AutomateMajor)' == '18'">
+    <AutomateVersion>18.5.1</AutomateVersion>
+    <AutomateRange>[18.5.1, 19.0.0)</AutomateRange>
+    <UmbracoCmsVersion>18.3.0</UmbracoCmsVersion>
+    <UmbracoCmsRange>[18.3.0, 19.0.0)</UmbracoCmsRange>
+    <!-- CMS 18.3.0 is built against Markdig 1.4.0; 1.5.1 is HQ's pin (plan Global Constraints). -->
+    <MarkdigRange>[1.5.1, 2.0.0)</MarkdigRange>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AutomateMajor)' == '17'">
+    <AutomateVersion>17.5.1</AutomateVersion>
+    <AutomateRange>[17.5.1, 18.0.0)</AutomateRange>
+    <UmbracoCmsVersion>17.8.0</UmbracoCmsVersion>
+    <UmbracoCmsRange>[17.8.0, 18.0.0)</UmbracoCmsRange>
+    <!-- CMS 17.8.0 is built against Markdig 0.45.0. Forcing 1.x onto a v17 site would swap a major
+         version under the CMS's own Markdown rendering, so the 17 line stays on the CMS's 0.x line. -->
+    <MarkdigRange>[0.45.0, 1.0.0)</MarkdigRange>
+  </PropertyGroup>
+
+  <!-- Fails fast: an unknown line would otherwise restore with empty version ranges. -->
+  <Target Name="ValidateAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18'">
+    <Error Text="AutomateMajor must be 17 or 18 (was '$(AutomateMajor)')." />
+  </Target>
+
+  <!-- Latest leg of CI: floating $(AutomateMajor).* so a new Automate release is exercised without a PR. Never packed. -->
+  <PropertyGroup>
+    <AutomateVersionSpec>$(AutomateRange)</AutomateVersionSpec>
+    <UmbracoCmsVersionSpec>$(UmbracoCmsRange)</UmbracoCmsVersionSpec>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AutomateFloat)' == 'true'">
+    <AutomateVersionSpec>$(AutomateMajor).*</AutomateVersionSpec>
+    <UmbracoCmsVersionSpec>$(AutomateMajor).*</UmbracoCmsVersionSpec>
+  </PropertyGroup>
+
+  <!-- Version: <line>.<minor>.<patch>; pre-releases pass -p:VersionSuffix=beta.1 -->
+  <PropertyGroup>
+    <PackageMinor Condition="'$(PackageMinor)' == ''">0</PackageMinor>
+    <PackagePatch Condition="'$(PackagePatch)' == ''">0</PackagePatch>
+    <VersionPrefix>$(AutomateMajor).$(PackageMinor).$(PackagePatch)</VersionPrefix>
+    <DefineConstants>$(DefineConstants);AUTOMATE_$(AutomateMajor)</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    One lock file per line, because a single file cannot hold two Automate versions.
+    A floating restore cannot be locked, so it gets a separate, git-ignored path and never touches the committed files.
+  -->
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <NuGetLockFilePath>packages.$(AutomateMajor).lock.json</NuGetLockFilePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AutomateFloat)' == 'true'">
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <NuGetLockFilePath>packages.$(AutomateMajor).float.lock.json</NuGetLockFilePath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Company>Pascal Meyer</Company>
+    <Authors>Pascal Meyer</Authors>
+    <Copyright>Copyright (c) Pascal Meyer $([System.DateTime]::Today.ToString('yyyy'))</Copyright>
+    <Product>Jira connector for Umbraco Automate</Product>
+    <PackageProjectUrl>https://github.com/PascalA94/Umbraco.Community.Automate.Jira</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/PascalA94/Umbraco.Community.Automate.Jira</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>logo-128.png</PackageIcon>
+    <PackageTags>umbraco umbraco-marketplace umbraco-automate jira atlassian</PackageTags>
+    <NeutralLanguage>en-GB</NeutralLanguage>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+  </PropertyGroup>
+
+  <!-- SourceLink, symbols package, deterministic build -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+</Project>

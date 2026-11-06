@@ -1,0 +1,42 @@
+<Project>
+  <!--
+    The demo site is a stand-alone project. It deliberately does not import the repository's root
+    Directory.Build.props, so it gets no lock files, documentation file or pack metadata, and it can
+    never end up in the package's pack output.
+
+    One project boots on both Automate lines: -p:AutomateMajor=17|18 (default 18) picks Umbraco CMS and
+    Automate. The package project reference receives the same global property, so the package is built
+    for the same line. Per-line obj and bin folders keep the two restores from overwriting each other.
+  -->
+  <PropertyGroup>
+    <AutomateMajor Condition="'$(AutomateMajor)' == ''">18</AutomateMajor>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <BaseIntermediateOutputPath>obj$(AutomateMajor)/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <BaseOutputPath>bin$(AutomateMajor)/</BaseOutputPath>
+    <!-- The SDK only excludes obj/ and bin/, so the per-line folders must be excluded from globbing here. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj17/**;obj18/**;bin17/**;bin18/**</DefaultItemExcludes>
+    <DefineConstants>$(DefineConstants);AUTOMATE_$(AutomateMajor)</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(AutomateMajor)' == '18'">
+    <AutomateVersion>18.5.1</AutomateVersion>
+    <UmbracoCmsVersion>18.3.0</UmbracoCmsVersion>
+    <!-- Latest stable Forms 18.x on nuget.org at 2026-11-04. -->
+    <UmbracoFormsVersion>18.2.2</UmbracoFormsVersion>
+    <UmbracoFormsAutomateVersion>18.0.3</UmbracoFormsAutomateVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AutomateMajor)' == '17'">
+    <AutomateVersion>17.5.1</AutomateVersion>
+    <UmbracoCmsVersion>17.8.0</UmbracoCmsVersion>
+    <!-- Latest stable Forms 17.x on nuget.org at 2026-11-04. -->
+    <UmbracoFormsVersion>17.6.2</UmbracoFormsVersion>
+    <UmbracoFormsAutomateVersion>17.0.3</UmbracoFormsAutomateVersion>
+  </PropertyGroup>
+  <Target Name="ValidateDemoAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18'">
+    <Error Text="AutomateMajor must be 17 or 18 (was '$(AutomateMajor)')." />
+  </Target>
+</Project>

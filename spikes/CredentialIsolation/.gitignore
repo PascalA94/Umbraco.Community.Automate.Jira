@@ -1,0 +1,7 @@
+evidence/
+*.log
+*.mark
+obj17/
+obj18/
+bin17/
+bin18/

@@ -1,0 +1,216 @@
+{
+  "automation": {
+    "alias": "exportShapeSample",
+    "canvasState": null,
+    "connections": [
+      {
+        "filter": null,
+        "outcome": null,
+        "sourceHandle": null,
+        "sourceStepId": "00000000-0000-0000-0000-000000000000",
+        "targetHandle": null,
+        "targetStepId": "cb1b8865-f688-424a-995c-e42b70dc208d"
+      },
+      {
+        "filter": {
+          "groups": [
+            {
+              "conditions": [
+                {
+                  "leftOperand": "${ steps.find.matches.length }",
+                  "operator": "GreaterThan",
+                  "rightOperand": "0"
+                }
+              ]
+            }
+          ]
+        },
+        "outcome": null,
+        "sourceHandle": null,
+        "sourceStepId": "cb1b8865-f688-424a-995c-e42b70dc208d",
+        "targetHandle": null,
+        "targetStepId": "c2431c13-6027-42c6-85de-7b38eabcde41"
+      },
+      {
+        "filter": null,
+        "outcome": null,
+        "sourceHandle": null,
+        "sourceStepId": "c2431c13-6027-42c6-85de-7b38eabcde41",
+        "targetHandle": null,
+        "targetStepId": "cb405297-45d2-436d-ae08-ca905f75f4eb"
+      },
+      {
+        "filter": null,
+        "outcome": "true",
+        "sourceHandle": null,
+        "sourceStepId": "cb405297-45d2-436d-ae08-ca905f75f4eb",
+        "targetHandle": null,
+        "targetStepId": "38f48014-2efa-4f8b-9139-c9d9597cee4f"
+      },
+      {
+        "filter": null,
+        "outcome": "false",
+        "sourceHandle": null,
+        "sourceStepId": "cb405297-45d2-436d-ae08-ca905f75f4eb",
+        "targetHandle": null,
+        "targetStepId": "9fbc21aa-e566-4d63-9855-6a8c30f41c99"
+      },
+      {
+        "filter": null,
+        "outcome": "approved",
+        "sourceHandle": null,
+        "sourceStepId": "38f48014-2efa-4f8b-9139-c9d9597cee4f",
+        "targetHandle": null,
+        "targetStepId": "5cdaa2dd-9395-44b6-a1aa-fcaf2597db9a"
+      },
+      {
+        "filter": null,
+        "outcome": "rejected",
+        "sourceHandle": null,
+        "sourceStepId": "38f48014-2efa-4f8b-9139-c9d9597cee4f",
+        "targetHandle": null,
+        "targetStepId": "9fbc21aa-e566-4d63-9855-6a8c30f41c99"
+      }
+    ],
+    "description": null,
+    "id": "20655cc0-0eab-477e-ac81-4cef580168ba",
+    "name": "exportShapeSample",
+    "notificationSettings": null,
+    "steps": [
+      {
+        "actionAlias": "umbracoAutomate.findContent",
+        "alias": "find",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "cb1b8865-f688-424a-995c-e42b70dc208d",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "find",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "name": "${ trigger.body.issue.key }",
+          "matchMode": "Exact"
+        }
+      },
+      {
+        "actionAlias": "umbracoAutomate.getContentProperty",
+        "alias": "readProp",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "c2431c13-6027-42c6-85de-7b38eabcde41",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "readProp",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "contentKey": "${ steps.find.matches[0].contentKey }",
+          "propertyAlias": "title"
+        }
+      },
+      {
+        "actionAlias": "umbracoAutomate.if",
+        "alias": "hasTitle",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "cb405297-45d2-436d-ae08-ca905f75f4eb",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "hasTitle",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "conditions": {
+            "groups": [
+              {
+                "conditions": [
+                  {
+                    "leftOperand": "${ steps.readProp.hasValue }",
+                    "operator": "Equals",
+                    "rightOperand": "true"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "actionAlias": "umbracoAutomate.requestApproval",
+        "alias": "approve",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "38f48014-2efa-4f8b-9139-c9d9597cee4f",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "approve",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "prompt": "Publish ${ trigger.body.issue.key }?",
+          "timeoutHours": 24
+        }
+      },
+      {
+        "actionAlias": "umbracoAutomate.publishContent",
+        "alias": "publish",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "5cdaa2dd-9395-44b6-a1aa-fcaf2597db9a",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "publish",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "contentKey": "${ steps.find.matches[0].contentKey }"
+        }
+      },
+      {
+        "actionAlias": "umbracoAutomate.logMessage",
+        "alias": "skipped",
+        "connectionAlias": null,
+        "errorBehavior": "Terminate",
+        "id": "9fbc21aa-e566-4d63-9855-6a8c30f41c99",
+        "inputMappings": {},
+        "maxRetries": null,
+        "name": "skipped",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "retryInterval": null,
+        "settings": {
+          "message": "Nothing to publish"
+        }
+      }
+    ],
+    "trigger": {
+      "settings": {},
+      "triggerAlias": "umbracoAutomate.manual"
+    }
+  },
+  "connectionReferences": [],
+  "exportedAt": "2026-11-04T10:38:47.381Z",
+  "exportedFrom": {
+    "product": "Umbraco.Automate",
+    "version": "18.5.1+ba63aaf"
+  },
+  "formatVersion": "1.0"
+}

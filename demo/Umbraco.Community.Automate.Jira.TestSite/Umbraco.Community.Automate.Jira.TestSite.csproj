@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Umbraco.Community.Automate.Jira.TestSite</RootNamespace>
+    <CompressionEnabled>false</CompressionEnabled>
+    <!-- Razor files are needed for the back office to work correctly. -->
+    <CopyRazorGenerateFilesToPublishDirectory>true</CopyRazorGenerateFilesToPublishDirectory>
+    <RazorCompileOnBuild>false</RazorCompileOnBuild>
+    <RazorCompileOnPublish>false</RazorCompileOnPublish>
+    <!-- macOS has no app-local ICU by default, as in the template. -->
+    <UmbracoUseAppLocalIcu Condition="'$(UmbracoUseAppLocalIcu)' == '' and ($(RuntimeIdentifier.StartsWith('linux')) or $(RuntimeIdentifier.StartsWith('win')) or ('$(RuntimeIdentifier)' == '' and !$([MSBuild]::IsOSPlatform('osx'))))">true</UmbracoUseAppLocalIcu>
+    <UmbracoUseAppLocalIcu Condition="'$(UmbracoUseAppLocalIcu)' == ''">false</UmbracoUseAppLocalIcu>
+    <UmbracoAppLocalIcuVersion Condition="'$(UmbracoAppLocalIcuVersion)' == ''">72.1.0.3</UmbracoAppLocalIcuVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Umbraco.Cms" />
+    <PackageReference Include="Umbraco.Automate" />
+    <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
+    <!-- Spike S5 (Task 3 step 4): Forms plus its Automate add-on, which carries the form triggers. -->
+    <PackageReference Include="Umbraco.Forms" />
+    <PackageReference Include="Umbraco.Forms.Automate" />
+    <!-- The package references this CVE pin with PrivateAssets="all" (build and audit only). Through a
+         ProjectReference that drops it from this graph altogether, although the CMS needs it at run time, so
+         the site would fail to start. NuGet consumers of the packed package get it from the CMS as usual. -->
+    <PackageReference Include="OpenTelemetry.Api" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UmbracoUseAppLocalIcu)' == 'true'">
+    <PackageReference Include="Microsoft.ICU.ICU4C.Runtime" />
+    <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="$(UmbracoAppLocalIcuVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Umbraco.Community.Automate.Jira\Umbraco.Community.Automate.Jira.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Keep the local appsettings.Local.json override out of publish output. -->
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+  <!-- The spike controller creates an admin-group API user and is guarded only by Development plus a
+       loopback address, which a tunnel (ngrok, cloudflared) satisfies for internet callers. It is
+       therefore compiled only on request: -p:DemoSpikes=true, and never while a tunnel is running. -->
+  <ItemGroup Condition="'$(DemoSpikes)' != 'true'">
+    <Compile Remove="Spikes/**" />
+  </ItemGroup>
+</Project>

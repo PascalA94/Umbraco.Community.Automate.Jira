@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Spike-only (Task 0 step 7): proves the reflection route to Automate's real resolver on the 17 line. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <BaseIntermediateOutputPath>obj17/</BaseIntermediateOutputPath><OutputPath>bin17/</OutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Umbraco.Automate.Core" Version="17.5.1" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

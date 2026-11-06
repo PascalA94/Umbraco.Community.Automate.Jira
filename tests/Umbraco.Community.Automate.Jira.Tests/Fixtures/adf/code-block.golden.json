@@ -1,0 +1,18 @@
+{
+  "type": "doc",
+  "version": 1,
+  "content": [
+    {
+      "type": "codeBlock",
+      "attrs": {
+        "language": "csharp"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "var x = 1;\nConsole.WriteLine(x);"
+        }
+      ]
+    }
+  ]
+}

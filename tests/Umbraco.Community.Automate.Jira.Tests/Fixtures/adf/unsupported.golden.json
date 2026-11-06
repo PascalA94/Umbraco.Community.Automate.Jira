@@ -1,0 +1,33 @@
+{
+  "type": "doc",
+  "version": 1,
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "| a | b | |---|---| | 1 | 2 |"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "alt text"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "\u003Cscript\u003Ealert(1)\u003C/script\u003E"
+        }
+      ]
+    }
+  ]
+}

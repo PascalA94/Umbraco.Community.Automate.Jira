@@ -1,0 +1,25 @@
+{
+  "fields": {
+    "project": { "key": "SBX" },
+    "issuetype": { "id": "10002" },
+    "summary": "Form submitted: contact us",
+    "description": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Line one" },
+            { "type": "hardBreak" },
+            { "type": "text", "text": "Line two" }
+          ]
+        }
+      ]
+    },
+    "labels": [ "web-form", "umbraco" ],
+    "priority": { "name": "High" },
+    "assignee": { "accountId": "000000:00000000-0000-4000-8000-000000000001" },
+    "parent": { "key": "SBX-1" }
+  }
+}

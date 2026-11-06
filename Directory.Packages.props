@@ -1,0 +1,58 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- The latest CI leg restores floating $(AutomateMajor).* versions (AutomateFloat=true). -->
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
+    <!-- Lets the pins below raise vulnerable transitive packages that Umbraco and Automate bring in. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Umbraco. Ranges are closed at both ends and never open-ended; see Directory.Build.props. -->
+  <ItemGroup>
+    <PackageVersion Include="Umbraco.Automate.Core" Version="$(AutomateVersionSpec)" />
+    <PackageVersion Include="Umbraco.Automate.Testing" Version="$(AutomateVersionSpec)" />
+    <!-- Test-only: the credential isolation suite (I06, I07) runs Automate's real registration and scans every assembly a site loads. -->
+    <PackageVersion Include="Umbraco.Automate.Persistence" Version="$(AutomateVersionSpec)" />
+    <PackageVersion Include="Umbraco.Automate.Startup" Version="$(AutomateVersionSpec)" />
+    <PackageVersion Include="Umbraco.Automate.Web" Version="$(AutomateVersionSpec)" />
+    <PackageVersion Include="Umbraco.Cms.Core" Version="$(UmbracoCmsVersionSpec)" />
+    <PackageVersion Include="Umbraco.Cms.Infrastructure" Version="$(UmbracoCmsVersionSpec)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Markdig" Version="$(MarkdigRange)" />
+  </ItemGroup>
+
+  <!--
+    Transitive pins (plan Task 1a step 1, F-16). The package references them with PrivateAssets="all", so they
+    fix this repo's own restore and audit but never reach consumers as open-ended dependencies: a site's own
+    restore and its own vulnerability audit decide what it runs. the lowest patched version of each vulnerable package that
+    Umbraco CMS 18.3.0 / 17.8.0 and Automate bring in. Re-check on every Automate or CMS bump with
+    scripts/vulnerable-check.sh; delete a pin once the upstream dependency has caught up (a stale pin below
+    what upstream needs fails restore with NU1109, so it cannot hide).
+      MessagePack 3.1.9                          GHSA-qhrr-8q5h-9q3h (moderate), fixed in 3.1.9
+      OpenTelemetry.Api 1.15.3                   GHSA-g94r-2vxg-569j (moderate), fixed in 1.15.3
+      System.Security.Cryptography.Xml 10.0.13   GHSA-r955-8q5j-3h83, GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj (high), fixed in 10.0.13
+  -->
+  <ItemGroup>
+    <PackageVersion Include="MessagePack" Version="3.1.9" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+  </ItemGroup>
+
+  <!-- Build-time only, never flows to consumers (PrivateAssets=all on the reference). -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+    <PackageVersion Include="Umbraco.JsonSchema.Extensions" Version="0.4.3" />
+  </ItemGroup>
+
+  <!-- Test stack: HQ's pins at 5318996. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- ADF to Markdown, used only as an independent test oracle for the Markdown converter (design 7.5). -->
+    <PackageVersion Include="Meziantou.Framework.AtlassianDataFormat" Version="1.0.2" />
+  </ItemGroup>
+</Project>

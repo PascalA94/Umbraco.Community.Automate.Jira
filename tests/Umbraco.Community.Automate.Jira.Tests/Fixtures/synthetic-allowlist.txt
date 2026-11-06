@@ -1,0 +1,8 @@
+# Invented personal data allowed in fixtures (FixtureScannerTests). One value per line.
+Ann Example
+Bob Example
+000000:00000000-0000-4000-8000-000000000001
+000000:00000000-0000-4000-8000-000000000002
+ann.example@example.invalid
+bob.example@example.invalid
+example-sandbox.atlassian.net

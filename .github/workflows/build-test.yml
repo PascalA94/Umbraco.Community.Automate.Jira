@@ -1,0 +1,128 @@
+name: build-test
+
+# Required status checks (set in the branch ruleset): "build-test (<line>, floor)", "build-test (<line>, latest)",
+# "gitleaks" and "docs-guard". The daily schedule exercises a new Automate release without waiting for a PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  lines:
+    name: lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: read
+        # eng/lines.txt is the single list of lines. Only digits are accepted, so a bad edit cannot reach a shell command.
+        run: |
+          set -euo pipefail
+          lines="$(grep -vE '^\s*(#|$)' eng/lines.txt | tr -d ' \r')"
+          if grep -qvE '^[0-9]+$' <<<"$lines"; then
+            echo "eng/lines.txt must hold one numeric line per row" >&2
+            exit 1
+          fi
+          echo "matrix=$(jq -cn --arg l "$lines" '$l | split("\n")')" >> "$GITHUB_OUTPUT"
+
+  build-test:
+    name: build-test
+    needs: lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        line: ${{ fromJSON(needs.lines.outputs.matrix) }}
+        leg: [floor, latest]
+    env:
+      LINE: ${{ matrix.line }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # Floor: the pinned floor versions, restored from the committed per-line lock files.
+      # --locked-mode is floor-only, because a floating version cannot be locked.
+      - name: Restore (floor, locked)
+        if: matrix.leg == 'floor'
+        run: dotnet restore Umbraco.Community.Automate.Jira.slnx --locked-mode -p:AutomateMajor="$LINE"
+      - name: Test (floor)
+        if: matrix.leg == 'floor'
+        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE"
+      - name: Vulnerable packages (floor)
+        if: matrix.leg == 'floor'
+        run: scripts/vulnerable-check.sh "$LINE"
+
+      # Latest: floating Automate and CMS for the line, no lock file, so the isolation suite re-runs on every release.
+      - name: Restore (latest, floating)
+        if: matrix.leg == 'latest'
+        run: dotnet restore Umbraco.Community.Automate.Jira.slnx --force-evaluate -p:AutomateMajor="$LINE" -p:AutomateFloat=true -p:RestorePackagesWithLockFile=false
+      - name: Test (latest)
+        if: matrix.leg == 'latest'
+        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE" -p:AutomateFloat=true
+      - name: Vulnerable packages (latest)
+        if: matrix.leg == 'latest'
+        run: scripts/vulnerable-check.sh "$LINE" float
+      - name: Resolved Automate version (latest)
+        if: matrix.leg == 'latest'
+        # `dotnet list package` rejects -p: properties, so the line goes in as environment variables.
+        run: AutomateMajor="$LINE" AutomateFloat=true dotnet list Umbraco.Community.Automate.Jira.slnx package | grep Umbraco.Automate.Core
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      # From gitleaks_8.30.1_checksums.txt, published with the release.
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks (checksum verified)
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/gitleaks" gitleaks
+      - name: Scan full history
+        run: |
+          "$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --exit-code 1
+
+  docs-guard:
+    name: docs-guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - run: scripts/docs-guard.sh

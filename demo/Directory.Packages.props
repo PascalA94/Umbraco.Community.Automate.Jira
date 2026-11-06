@@ -1,0 +1,18 @@
+<Project>
+  <!-- Demo-only versions. The package's own ranges live in the repository root Directory.Packages.props. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <UmbracoAppLocalIcuVersion Condition="'$(UmbracoAppLocalIcuVersion)' == ''">72.1.0.3</UmbracoAppLocalIcuVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Umbraco.Cms" Version="$(UmbracoCmsVersion)" />
+    <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="$(UmbracoCmsVersion)" />
+    <PackageVersion Include="Umbraco.Automate" Version="$(AutomateVersion)" />
+    <PackageVersion Include="Umbraco.Forms" Version="$(UmbracoFormsVersion)" />
+    <PackageVersion Include="Umbraco.Forms.Automate" Version="$(UmbracoFormsAutomateVersion)" />
+    <PackageVersion Include="Microsoft.ICU.ICU4C.Runtime" Version="$(UmbracoAppLocalIcuVersion)" />
+    <!-- Same transitive pin as the root props (GHSA-g94r-2vxg-569j), so the demo restores warning-free. -->
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,83 @@
+{
+  "timestamp": 1762249200000,
+  "webhookEvent": "jira:issue_updated",
+  "issue_event_type_name": "issue_commented",
+  "user": {
+    "self": "https://example-sandbox.atlassian.net/rest/api/2/user?accountId=000000:00000000-0000-4000-8000-000000000002",
+    "accountId": "000000:00000000-0000-4000-8000-000000000002",
+    "displayName": "Bob Example",
+    "active": true,
+    "timeZone": "Europe/London",
+    "accountType": "atlassian"
+  },
+  "issue": {
+    "id": "10017",
+    "self": "https://example-sandbox.atlassian.net/rest/api/2/10017",
+    "key": "SBX-17",
+    "fields": {
+      "summary": "Publish the spring campaign page",
+      "status": {
+        "name": "Ready to publish",
+        "id": "10000",
+        "statusCategory": {
+          "key": "new",
+          "name": "To Do"
+        }
+      },
+      "issuetype": {
+        "id": "10001",
+        "name": "Task"
+      },
+      "project": {
+        "id": "10000",
+        "key": "SBX",
+        "name": "Sandbox"
+      },
+      "reporter": {
+        "self": "https://example-sandbox.atlassian.net/rest/api/2/user?accountId=000000:00000000-0000-4000-8000-000000000001",
+        "accountId": "000000:00000000-0000-4000-8000-000000000001",
+        "displayName": "Ann Example",
+        "active": true,
+        "timeZone": "Europe/London",
+        "accountType": "atlassian"
+      },
+      "assignee": {
+        "self": "https://example-sandbox.atlassian.net/rest/api/2/user?accountId=000000:00000000-0000-4000-8000-000000000002",
+        "accountId": "000000:00000000-0000-4000-8000-000000000002",
+        "displayName": "Bob Example",
+        "active": true,
+        "timeZone": "Europe/London",
+        "accountType": "atlassian"
+      },
+      "labels": [
+        "web"
+      ],
+      "created": "2026-11-04T09:00:00.000+0000",
+      "updated": "2026-11-04T09:30:00.000+0000"
+    }
+  },
+  "comment": {
+    "self": "https://example-sandbox.atlassian.net/rest/api/2/issue/10017/comment/10050",
+    "id": "10050",
+    "author": {
+      "self": "https://example-sandbox.atlassian.net/rest/api/2/user?accountId=000000:00000000-0000-4000-8000-000000000002",
+      "accountId": "000000:00000000-0000-4000-8000-000000000002",
+      "displayName": "Bob Example",
+      "active": true,
+      "timeZone": "Europe/London",
+      "accountType": "atlassian"
+    },
+    "body": "Copy approved by marketing.",
+    "updateAuthor": {
+      "self": "https://example-sandbox.atlassian.net/rest/api/2/user?accountId=000000:00000000-0000-4000-8000-000000000002",
+      "accountId": "000000:00000000-0000-4000-8000-000000000002",
+      "displayName": "Bob Example",
+      "active": true,
+      "timeZone": "Europe/London",
+      "accountType": "atlassian"
+    },
+    "created": "2026-11-04T09:40:00.000+0000",
+    "updated": "2026-11-04T09:40:00.000+0000",
+    "jsdPublic": true
+  }
+}

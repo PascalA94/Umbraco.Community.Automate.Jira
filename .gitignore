@@ -1,0 +1,18 @@
+.superpowers/
+bin/
+obj/
+out/
+*.user
+.vs/
+.idea/
+*.db
+*.sqlite*
+umbraco/Data/
+umbraco/Logs/
+wwwroot/media/
+appsettings.Local.json
+
+# Generated at build time by the JsonSchemaGenerate target
+/src/Umbraco.Community.Automate.Jira/appsettings-schema.*.json
+# Floating (latest-leg) restores write here, never to the committed per-line lock files
+packages.*.float.lock.json
