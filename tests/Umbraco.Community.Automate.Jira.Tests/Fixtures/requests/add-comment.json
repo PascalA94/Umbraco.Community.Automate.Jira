@@ -1,0 +1,19 @@
+{
+  "body": {
+    "type": "doc",
+    "version": 1,
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          { "type": "text", "text": "Line one" },
+          { "type": "hardBreak" },
+          { "type": "text", "text": "Line two" }
+        ]
+      }
+    ]
+  },
+  "properties": [
+    { "key": "community.jira.dedupe", "value": { "key": "set-by-test" } }
+  ]
+}

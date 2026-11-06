@@ -55,6 +55,14 @@ internal static class DedupeKey
     public static string Marker(string effectiveKey, Guid connectionId) =>
         Convert.ToHexStringLower(HMACSHA256.HashData(connectionId.ToByteArray(), Encoding.UTF8.GetBytes(effectiveKey)))[..16];
 
+    /// <summary>
+    /// The comment marker also binds the issue (M2 security review SEC-01). Comment properties are readable by
+    /// anyone who can browse an issue, so with a user key that repeats across issues, a marker copied from one
+    /// issue onto a comment on another would otherwise make that step skip its post.
+    /// </summary>
+    public static string CommentMarker(string effectiveKey, string issueKey, Guid connectionId) =>
+        Marker(issueKey + "\n" + effectiveKey, connectionId);
+
     // Each input is length-prefixed (a null is -1), so ("ab","c") and ("a","bc") hash differently.
     private static string Fingerprint(IReadOnlyList<string?> inputs)
     {

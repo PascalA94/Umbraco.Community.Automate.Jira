@@ -162,15 +162,194 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
             : new JiraCreatedIssue(id, validKey!);
     }
 
-    public Task<JiraCreatedComment> AddCommentAsync(JiraTarget target, string issueKey, JsonObject adfBody, string? dedupeMarker, CancellationToken ct) => throw new NotImplementedException();
+    /// <summary>The comment property key that carries the dedupe marker (design 6.3).</summary>
+    internal const string CommentDedupePropertyKey = "community.jira.dedupe";
 
-    public Task<string> GetIssueStatusAsync(JiraTarget target, string issueKey, CancellationToken ct) => throw new NotImplementedException();
+    public async Task<JiraCreatedComment> AddCommentAsync(JiraTarget target, string issueKey, JsonObject adfBody, string? dedupeMarker, CancellationToken ct)
+    {
+        var body = new JsonObject { ["body"] = adfBody.DeepClone() };
+        if (dedupeMarker is not null)
+        {
+            EnsureMarker(dedupeMarker);
+            body["properties"] = new JsonArray(new JsonObject
+            {
+                ["key"] = CommentDedupePropertyKey,
+                ["value"] = new JsonObject { ["key"] = dedupeMarker },
+            });
+        }
 
-    public Task<IReadOnlyList<JiraTransition>> GetTransitionsAsync(JiraTarget target, string issueKey, CancellationToken ct) => throw new NotImplementedException();
+        // Never retried here, as with creates: only Automate retries, after the read-first listing.
+        using var doc = await SendAsync(
+            target,
+            HttpMethod.Post,
+            "/rest/api/3/issue/{key}/comment",
+            new Dictionary<string, string> { ["key"] = issueKey },
+            body: body,
+            notFoundSubject: "Issue " + issueKey,
+            ct: ct) ?? throw JiraResponseHandler.InvalidResponse();
 
-    public Task DoTransitionAsync(JiraTarget target, string issueKey, string transitionId, JsonObject? commentAdf, string? resolutionName, CancellationToken ct) => throw new NotImplementedException();
+        return ReadComment(doc.RootElement) ?? throw JiraResponseHandler.InvalidResponse();
+    }
 
-    public Task<JiraCreatedComment?> FindCommentByDedupeAsync(JiraTarget target, string issueKey, string dedupeMarker, CancellationToken ct) => throw new NotImplementedException();
+    public async Task<JiraCreatedComment?> FindCommentByDedupeAsync(JiraTarget target, string issueKey, string dedupeMarker, CancellationToken ct)
+    {
+        EnsureMarker(dedupeMarker);
+
+        // A failure here throws, and the action then fails without posting (F-05).
+        using var doc = await SendAsync(
+            target,
+            HttpMethod.Get,
+            "/rest/api/3/issue/{key}/comment",
+            new Dictionary<string, string> { ["key"] = issueKey },
+            query: "orderBy=-created&maxResults=50&expand=properties",
+            notFoundSubject: "Issue " + issueKey,
+            ct: ct) ?? throw JiraResponseHandler.InvalidResponse();
+
+        if (doc.RootElement.ValueKind != JsonValueKind.Object
+            || !doc.RootElement.TryGetProperty("comments", out var comments)
+            || comments.ValueKind != JsonValueKind.Array)
+        {
+            throw JiraResponseHandler.InvalidResponse();
+        }
+
+        // The listing is newest first. Anyone who can edit a comment can copy the marker onto it, but only onto a
+        // comment newer than the one this step wrote, so the oldest match wins (M2 security review SEC-01).
+        JsonElement? oldest = null;
+        foreach (var comment in comments.EnumerateArray())
+        {
+            if (HasMarker(comment, dedupeMarker))
+            {
+                oldest = comment;
+            }
+        }
+
+        // Ours by marker but unreadable: posting again could duplicate it, so fail instead.
+        return oldest is { } match ? ReadComment(match) ?? throw JiraResponseHandler.InvalidResponse() : null;
+    }
+
+    private static bool HasMarker(JsonElement comment, string marker)
+    {
+        if (comment.ValueKind != JsonValueKind.Object
+            || !comment.TryGetProperty("properties", out var properties)
+            || properties.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var property in properties.EnumerateArray())
+        {
+            if (ReadString(property, "key") == CommentDedupePropertyKey
+                && property.TryGetProperty("value", out var value)
+                && ReadString(value, "key") == marker)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static JiraCreatedComment? ReadComment(JsonElement element)
+    {
+        var id = ReadString(element, "id");
+        return JiraIdentifiers.IsNumericId(id) ? new JiraCreatedComment(id!.Trim()) : null;
+    }
+
+    // The marker is 16 lower-case hex characters; anything else would not be ours.
+    private static void EnsureMarker(string marker)
+    {
+        if (marker.Length != 16 || !marker.All(char.IsAsciiHexDigitLower))
+        {
+            throw new ArgumentException("A dedupe marker is 16 lower-case hex characters.", nameof(marker));
+        }
+    }
+
+    public async Task<string> GetIssueStatusAsync(JiraTarget target, string issueKey, CancellationToken ct)
+    {
+        using var doc = await SendAsync(
+            target,
+            HttpMethod.Get,
+            "/rest/api/3/issue/{key}",
+            new Dictionary<string, string> { ["key"] = issueKey },
+            query: "fields=status",
+            notFoundSubject: "Issue " + issueKey,
+            ct: ct) ?? throw JiraResponseHandler.InvalidResponse();
+
+        var name = doc.RootElement.ValueKind == JsonValueKind.Object
+            && doc.RootElement.TryGetProperty("fields", out var fields)
+            && fields.ValueKind == JsonValueKind.Object
+            && fields.TryGetProperty("status", out var status)
+                ? ReadString(status, "name")
+                : null;
+
+        return string.IsNullOrWhiteSpace(name) ? throw JiraResponseHandler.InvalidResponse() : JiraResponseHandler.Truncate(name);
+    }
+
+    public async Task<IReadOnlyList<JiraTransition>> GetTransitionsAsync(JiraTarget target, string issueKey, CancellationToken ct)
+    {
+        using var doc = await SendAsync(
+            target,
+            HttpMethod.Get,
+            "/rest/api/3/issue/{key}/transitions",
+            new Dictionary<string, string> { ["key"] = issueKey },
+            notFoundSubject: "Issue " + issueKey,
+            ct: ct) ?? throw JiraResponseHandler.InvalidResponse();
+
+        if (doc.RootElement.ValueKind != JsonValueKind.Object
+            || !doc.RootElement.TryGetProperty("transitions", out var list)
+            || list.ValueKind != JsonValueKind.Array)
+        {
+            throw JiraResponseHandler.InvalidResponse();
+        }
+
+        var transitions = new List<JiraTransition>();
+        foreach (var item in list.EnumerateArray())
+        {
+            var id = ReadString(item, "id");
+            var name = ReadString(item, "name");
+            var to = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("to", out var toElement) ? ReadString(toElement, "name") : null;
+
+            // The ID goes back to Jira in a request body, so only a numeric one is kept.
+            if (JiraIdentifiers.IsNumericId(id) && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(to))
+            {
+                transitions.Add(new JiraTransition(id!.Trim(), JiraResponseHandler.Truncate(name), JiraResponseHandler.Truncate(to)));
+            }
+        }
+
+        return transitions;
+    }
+
+    public async Task DoTransitionAsync(JiraTarget target, string issueKey, string transitionId, JsonObject? commentAdf, string? resolutionName, CancellationToken ct)
+    {
+        if (!JiraIdentifiers.IsNumericId(transitionId) || transitionId.Trim() != transitionId)
+        {
+            throw new ArgumentException("A transition ID is numeric.", nameof(transitionId));
+        }
+
+        var body = new JsonObject { ["transition"] = new JsonObject { ["id"] = transitionId } };
+        if (commentAdf is not null)
+        {
+            body["update"] = new JsonObject
+            {
+                ["comment"] = new JsonArray(new JsonObject { ["add"] = new JsonObject { ["body"] = commentAdf.DeepClone() } }),
+            };
+        }
+
+        if (resolutionName is not null)
+        {
+            body["fields"] = new JsonObject { ["resolution"] = new JsonObject { ["name"] = resolutionName } };
+        }
+
+        // Jira answers 204 with no body. Never retried here; the action's already-in-status check makes a retry safe.
+        using var doc = await SendAsync(
+            target,
+            HttpMethod.Post,
+            "/rest/api/3/issue/{key}/transitions",
+            new Dictionary<string, string> { ["key"] = issueKey },
+            body: body,
+            notFoundSubject: "Issue " + issueKey,
+            ct: ct);
+    }
 
     public async Task<IReadOnlyList<string>> GetHeldPermissionsAsync(JiraTarget target, IReadOnlyList<string> keys, CancellationToken ct)
     {

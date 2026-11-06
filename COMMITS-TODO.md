@@ -198,3 +198,75 @@ The repo has no commits yet, so this first commit holds M0 and M1 together. Chec
 3. Check: `git log -1 --stat --oneline | head -5`
 
 4. Then tag the frozen contract: `git tag credential-helper-1.0.0`. The store and its hashed suites are unchanged since the freeze; C17 is green. Push the tag only when you push the repo (see checkpoints 2 and 3 for the go-public order).
+
+## Resumed (2026-11-06, M2 session)
+
+Resumed from the note above, with the M0 and M1 milestone commit in place (`9f3d302`), to run M2 (Tasks 14 and 15).
+
+## Checkpoint 17: Task 14 (Add comment action)
+
+- **Files:** `Actions/AddComment{Action,Settings,Output}.cs`, `Client/JiraClient.cs` (`AddCommentAsync`, `FindCommentByDedupeAsync`), tests `AddCommentActionTests.cs`, `Fixtures/requests/add-comment.json`.
+- **Strategy:** read-first, because spike S4 probe (c) passed. Every attempt lists the 50 newest comments with `expand=properties` and posts only if its `community.jira.dedupe` marker is not there. A failed listing posts nothing.
+- **Message (record only):** `feat: add Add Jira comment action`
+
+## Checkpoint 18: Task 15 (Transition issue action)
+
+- **Files:** `Actions/TransitionIssue{Action,Settings,Output}.cs`, `Actions/TransitionMatcher.cs`, `Client/JiraClient.cs` (`GetIssueStatusAsync`, `GetTransitionsAsync`, `DoTransitionAsync`), tests `TransitionIssueActionTests.cs`, `Fixtures/requests/transition-issue.json`.
+- **Message (record only):** `feat: add Transition Jira issue action`
+- **Not run:** step 5, the manual use case 3 check on the demo site (Content Published → Get Content Property → Add comment → Transition to Done). The sandbox env vars were not set in this session.
+
+## M2 review fixes (record)
+
+- **Reviews:** both read the M2 diff (`9f3d302` to the working tree) and the files it touches.
+  - `qa-reviewer`: passed with findings (1 major, 5 minor).
+  - `security-analyst`: approved with conditions (no Critical, no High; 2 medium conditions, 3 low).
+- **Fixed, each with a test that failed first:**
+  - A comment's dedupe marker now includes the issue. The oldest matching comment wins, so a marker copied onto another issue or onto a newer comment can't suppress a post (SEC-01).
+  - A matched transition whose target is the current status is now a no-op. A retry can no longer re-apply a global transition by ID or name (SEC-02).
+  - A retry by a transition name Jira no longer offers fails with a message saying the issue may already have moved and to use the status name (QA M2-1). The field help now recommends the status name.
+  - Comment dedupe now has tests proving it is stable on retry, distinct per step, run, automation and loop item, and fails closed when the loop index can't be read (QA M2-2).
+- **Message (record only):** `fix: address M2 review (issue-scoped comment marker, global-transition retries, retry guidance)`
+- **Deferred minors and rulings:** listed in the ledger (`.superpowers/sdd/plan/progress.md`, lines starting "M2:").
+
+## Paused here (2026-11-06, after M2)
+
+- **Why:** M2 is finished, and the rule is one milestone per session.
+- **Next task:** Task 16 (signature authenticator `community.jira.signature`), the start of M3. It gets a per-task review from `qa-reviewer` and `security-analyst`, and so does Task 17a (find content).
+- **Running:** nothing. No subagents, background tasks or demo site are running.
+- **State:**
+  - `./scripts/test.sh` passes 674/674 on lines 17 and 18.
+  - `scripts/vulnerable-check.sh 17` and `18` both exit 0.
+  - `docs-guard` is ok.
+  - gitleaks finds no leaks in the M2 file set.
+- **Carry into M3 and later:**
+  - Task 17's parser runs `JsonGuards.FindDuplicateKey` before `AdfToText.Flatten` (from M1).
+  - Task 17a's integration project needs a direct `OpenTelemetry.Api` reference.
+  - Task 18: add a control-character and bidi strip (`SafeText`) for Jira-supplied names in logs, errors and outputs (SEC-03).
+  - Task 20: the README documents three things:
+    - the 50-comment dedupe window and that concurrent runs aren't serialised (SEC-04, QA M2-3);
+    - that Transition is safest as a status name;
+    - that a self-loop transition is skipped.
+- **Your decisions and to-dos:**
+  - **UNKNOWN (SEC-03 severity):** does the Automate backoffice HTML-encode step log lines and error messages? If not, Jira-supplied names in errors are a stored-XSS question, not a low finding.
+  - **Design wording:** design 6.4 says the already-in-status check "makes it idempotent". That now holds for a status name, and for a transition still offered after the move. It doesn't hold for a transition name or ID that Jira stops offering, which fails with guidance. Update 6.4 if you agree.
+  - **Live checks (before Task 21):** still open from M1, plus Task 15 step 5. Export `JIRA_SANDBOX_SITE` and `Umbraco__Automate__Jira__Credentials__sandbox__Email|ApiToken`, start the demo with `-p:DemoSpikes=true`, and run use case 3 on SBX.
+- **Resume:** run the milestone commit below, then start a fresh session and say "continue".
+
+## Milestone commit (M2)
+
+1. Check nothing unwanted is pending. There should be no `.db`, `umbraco/Data`, `bin/`, `obj/`, `out/`, `.superpowers/`, `appsettings.Local.json`, review or transcript files:
+
+   ```sh
+   cd ~/Projects/Umbraco.Community.Automate.Jira
+   git status --short | grep -i -E '\.db|sqlite|umbraco/(data|logs)|/bin/|/obj/|^\?\? out/|\.superpowers|appsettings\.local|review|transcript' || echo "clean"
+   ```
+
+2. Commit:
+
+   ```sh
+   git add -A
+   git commit -m "feat: add Add comment and Transition issue actions (M2)" \
+     -m "community.jira.addComment with read-first dedupe: an issue-scoped HMAC marker stored as a comment property, the oldest match wins, and a failed listing posts nothing. community.jira.transitionIssue with ID, name and status matching, ambiguity errors, and an already-in-status no-op that also covers global transitions. Plain-text transition comments and an optional resolution. M2 review fixes."
+   ```
+
+3. Check: `git log -1 --stat --oneline | head -5`
