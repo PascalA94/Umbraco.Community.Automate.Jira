@@ -1,20 +1,25 @@
 {
     "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+    "Title": "Jira connector for Umbraco Automate",
+    "Description": "Create Jira Cloud issues, add comments and move issues from Umbraco Automate, and start automations from signed Jira webhooks. Credentials stay in configuration, never in automations.",
     "AuthorDetails": {
         "Name": "Pascal Meyer",
-        "Description": "Pascal Meyer",
-        "Url": "https://github.com/PascalA94"
+        "Description": "Umbraco developer and community package author.",
+        "Url": "https://github.com/PascalA94",
+        "ImageUrl": "https://github.com/PascalA94.png"
     },
     "Category": "Automation",
     "LicenseTypes": ["Free"],
-    "DocumentationUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira",
+    "DocumentationUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira#readme",
     "IssueTrackerUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira/issues",
     "PackageType": "Package",
+    "ReadmeUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/umbraco-marketplace-readme.md",
     "RelatedPackages": [
         {
             "PackageId": "Umbraco.Automate",
             "Description": "Core automation system for Umbraco CMS"
         }
     ],
-    "Tags": ["umbraco", "automate", "automation", "jira", "atlassian"]
+    "Screenshots": [],
+    "Tags": ["umbraco", "umbracopackage", "automate", "automation", "jira", "atlassian"]
 }

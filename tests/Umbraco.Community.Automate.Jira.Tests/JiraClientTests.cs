@@ -37,6 +37,28 @@ public class JiraClientTests
         public JiraTarget Target(string? cloudId = null) => Acme.Target(cloudId);
     }
 
+    // M2 security review SEC-03: every name Jira supplies goes through SafeText before an action can log or output it.
+    [Fact]
+    public async Task JiraSuppliedNames_AreSafeText()
+    {
+        var rig = new Rig();
+        rig.Fake.EnqueueJson(HttpStatusCode.OK, """{"accountId":"acc-1","displayName":"Svc\u202E Account\n"}""")
+            .EnqueueJson(HttpStatusCode.OK, """{"issueTypes":[{"id":"1","name":"Bu\u2066g\u0007"}]}""")
+            .EnqueueJson(HttpStatusCode.OK, """{"id":"1","key":"SBX-1","fields":{"status":{"name":"Do\u202Ene\r\n"}}}""")
+            .EnqueueJson(HttpStatusCode.OK, """{"transitions":[{"id":"31","name":"Cl\u200Fose\t","to":{"name":"Do\u2069ne"}}]}""");
+
+        var user = await rig.Client.GetMyselfAsync(rig.Target(), default);
+        var types = await rig.Client.GetIssueTypesAsync(rig.Target(), "SBX", default);
+        var status = await rig.Client.GetIssueStatusAsync(rig.Target(), "SBX-1", default);
+        var transition = Assert.Single(await rig.Client.GetTransitionsAsync(rig.Target(), "SBX-1", default));
+
+        Assert.Equal("Svc Account ", user.DisplayName);
+        Assert.Equal("Bug ", Assert.Single(types).Name);
+        Assert.Equal("Done  ", status);
+        Assert.Equal("Close ", transition.Name);
+        Assert.Equal("Done", transition.ToStatusName);
+    }
+
     [Fact]
     public async Task GetMyself_ParsesTheUser_AndUsesSiteRoute()
     {

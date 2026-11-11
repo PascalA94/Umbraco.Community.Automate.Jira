@@ -1,0 +1,119 @@
+name: publish
+
+# Runs on a version tag pushed by Pascal after the release PR is squash-merged. One tag ships every line in
+# eng/lines.txt: tag v18.<minor>.<patch>[-<suffix>] packs 18.<minor>.<patch>[-<suffix>] and
+# 17.<minor>.<patch>[-<suffix>] (plan Global Constraints: one tag ships both lines). Run "release-checks" on the
+# release PR first.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  # All build and test code runs here with read-only permissions, so none of it can request the OIDC token that
+  # publishes. No NuGet cache: a release never restores from a cache a PR filled (portfolio CI rule 8).
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Read the tag
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          lines="$(grep -vE '^\s*(#|$)' eng/lines.txt | tr -d ' \r')"
+          if grep -qvE '^[0-9]+$' <<<"$lines"; then
+            echo "eng/lines.txt must hold one numeric line per row" >&2; exit 1
+          fi
+          newest="$(sort -n <<<"$lines" | tail -1)"
+          if [[ ! "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9A-Za-z][0-9A-Za-z.-]*))?$ ]]; then
+            echo "Tag $TAG is not v<line>.<minor>.<patch>[-<suffix>]" >&2; exit 1
+          fi
+          if [[ "${BASH_REMATCH[1]}" != "$newest" ]]; then
+            echo "Tag $TAG must start with the newest line, v$newest" >&2; exit 1
+          fi
+          {
+            echo "minor=${BASH_REMATCH[2]}"
+            echo "patch=${BASH_REMATCH[3]}"
+            echo "suffix=${BASH_REMATCH[5]}"
+            echo "lines=$(tr '\n' ' ' <<<"$lines")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tag is on main and in the changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          # Whole-line match: "## 18.0.0" must not be satisfied by "## 18.0.0-beta.1" or "## 18.0.10".
+          grep -qxF "## ${TAG#v}" CHANGELOG.md || { echo "CHANGELOG.md has no '## ${TAG#v}' heading line" >&2; exit 1; }
+
+      - name: Test, audit and pack every line
+        env:
+          LINES: ${{ steps.tag.outputs.lines }}
+          MINOR: ${{ steps.tag.outputs.minor }}
+          PATCH: ${{ steps.tag.outputs.patch }}
+          SUFFIX: ${{ steps.tag.outputs.suffix }}
+        run: |
+          set -euo pipefail
+          for line in $LINES; do
+            dotnet restore Umbraco.Community.Automate.Jira.slnx --locked-mode -p:AutomateMajor="$line"
+            dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$line" --logger "console;verbosity=minimal"
+            scripts/vulnerable-check.sh "$line"
+            scripts/pack.sh "$line" ./artifacts "$MINOR" "$PATCH" ${SUFFIX:+"$SUFFIX"}
+          done
+          for pkg in ./artifacts/*.nupkg; do scripts/check-packed-readme.sh "$pkg"; done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nupkgs
+          path: |
+            ./artifacts/*.nupkg
+            ./artifacts/*.snupkg
+          if-no-files-found: error
+
+  # The only job that can mint the OIDC token. It checks out nothing and runs no project code. A required
+  # reviewer approves each run (environment "nuget").
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write # NuGet Trusted Publishing: no long-lived API key
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nupkgs
+          path: ./artifacts
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.x"
+      - name: NuGet login (Trusted Publishing)
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"

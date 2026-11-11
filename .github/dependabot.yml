@@ -1,4 +1,6 @@
 version: 2
+# No routine version PRs (portfolio CI rule 9). Security updates stay on through the repo setting, and dev-tool
+# majors are upgraded by hand in their own PR.
 updates:
   # The Automate and CMS floors are portfolio decisions held in Directory.Build.props properties,
   # so Dependabot cannot and should not bump them; those bumps are manual (runbook).
@@ -11,9 +13,9 @@ updates:
       - "/demo/*"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0

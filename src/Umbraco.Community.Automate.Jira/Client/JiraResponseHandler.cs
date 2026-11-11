@@ -15,6 +15,33 @@ internal static class JiraResponseHandler
     // Depth 32 wherever JSON from outside is parsed (plan Global Constraints). A property, so no static state.
     internal static JsonDocumentOptions ParseOptions => new() { MaxDepth = 32 };
 
+    /// <summary>
+    /// Makes text that Jira supplies (names, error messages) safe to show in a run log, error or output: control
+    /// characters and line or paragraph separators become a space, bidirectional controls are removed, and the
+    /// result is cut to <paramref name="max"/>. A Jira admin, or anyone who can name a status, could otherwise
+    /// forge extra log lines or reorder what a reader sees (M2 security review SEC-03).
+    /// </summary>
+    internal static string SafeText(string text, int max = MaxMessageLength)
+    {
+        var builder = new System.Text.StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            if (IsBidiControl(c))
+            {
+                continue;
+            }
+
+            builder.Append(char.IsControl(c) || c is '\u2028' or '\u2029' ? ' ' : c);
+        }
+
+        return Truncate(builder.ToString(), max);
+    }
+
+    // The explicit directional marks, embeddings, overrides and isolates (Unicode UAX #9). ZWJ and other
+    // format characters stay, because emoji sequences need them and they cannot reorder text.
+    private static bool IsBidiControl(char c) =>
+        c is '\u061C' or '\u200E' or '\u200F' or (>= '\u202A' and <= '\u202E') or (>= '\u2066' and <= '\u2069');
+
     /// <summary>Cuts to <paramref name="max"/> UTF-16 units without splitting a surrogate pair.</summary>
     internal static string Truncate(string text, int max = MaxMessageLength)
     {
@@ -102,7 +129,7 @@ internal static class JiraResponseHandler
                 {
                     if (item.ValueKind == JsonValueKind.String && messages.Count < MaxMessages)
                     {
-                        messages.Add(Truncate(item.GetString()!));
+                        messages.Add(SafeText(item.GetString()!));
                     }
                 }
             }
@@ -113,7 +140,7 @@ internal static class JiraResponseHandler
                 {
                     if (field.Value.ValueKind == JsonValueKind.String && messages.Count < MaxMessages)
                     {
-                        messages.Add($"{Truncate(field.Name)}: {Truncate(field.Value.GetString()!)}");
+                        messages.Add($"{SafeText(field.Name)}: {SafeText(field.Value.GetString()!)}");
                     }
                 }
             }

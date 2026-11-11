@@ -38,6 +38,8 @@
     <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <!-- The demo's use case 4 seed, read by UseCase4SeedTests (the automated F-01 guard). -->
     <None Include="..\..\demo\Umbraco.Community.Automate.Jira.TestSite\Seeds\usecase4.automation.json" Link="Seeds\usecase4.automation.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The README, read by ReadmeTests (plan Task 20, review P1): the use case 4 warnings ship as reviewed. -->
+    <None Include="..\..\README.md" Link="Docs\README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

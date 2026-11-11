@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when docs/ holds anything but the four files that may be public, or when any tracked file is named
+# Fails when docs/ holds anything but the three files that may be public, or when any tracked file is named
 # like a private review artefact. The repo is public, so a stray review, council transcript or evidence file
 # is a leak, not a tidy-up.
 set -uo pipefail
@@ -7,7 +7,7 @@ set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-allowed=$'docs/design.md\ndocs/plan.md\ndocs/spikes.md\ndocs/runbook.md'
+allowed=$'docs/design.md\ndocs/plan.md\ndocs/spikes.md'
 failed=0
 
 while IFS= read -r file; do

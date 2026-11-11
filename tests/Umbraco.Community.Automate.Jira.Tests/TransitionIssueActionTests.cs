@@ -131,6 +131,25 @@ public class TransitionIssueActionTests
         Assert.DoesNotContain(rig.Fake.Requests, IsPost);
     }
 
+    // M4 security review SEC-M4-6: the requested value is often bound from a webhook (raw, untrusted text), so its
+    // echo in the error goes through SafeText like every Jira-supplied name.
+    [Fact]
+    public async Task UnavailableTransition_EchoIsSafeText()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, InProgress).EnqueueJson(HttpStatusCode.OK, Transitions);
+
+        var result = await rig.RunAsync(Action(rig), Settings(transition: "Arc\u202Ehive\u001b[31m\tx"));
+
+        Assert.Equal(StepRunErrorCategory.Validation, result.ErrorCategory);
+        var message = result.Exception!.Message;
+        Assert.DoesNotContain('\u202E', message);
+        Assert.DoesNotContain('\u001b', message);
+        Assert.DoesNotContain('\t', message);
+        Assert.Contains("Archive [31m x", message, StringComparison.Ordinal);
+        Assert.Empty(rig.Fake.Requests.Where(IsPost));
+    }
+
     [Fact]
     public async Task RetryAfterTimeout_ByTransitionName_SaysItMayHaveMoved()
     {

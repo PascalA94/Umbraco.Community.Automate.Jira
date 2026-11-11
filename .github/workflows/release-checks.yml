@@ -1,0 +1,116 @@
+name: release-checks
+
+# Run by hand before every release (Actions -> release-checks -> Run workflow), and after a new Umbraco or
+# Automate minor. Never on PRs or a schedule (portfolio CI rule 3). The package has no backoffice UI, so there is
+# no Playwright leg; the slow checks here are the live Jira contract tests and the integration tests on SQL Server.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  lines:
+    name: lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.read.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: read
+        run: |
+          set -euo pipefail
+          lines="$(grep -vE '^\s*(#|$)' eng/lines.txt | tr -d ' \r')"
+          if grep -qvE '^[0-9]+$' <<<"$lines"; then
+            echo "eng/lines.txt must hold one numeric line per row" >&2
+            exit 1
+          fi
+          echo "matrix=$(jq -cn --arg l "$lines" '$l | split("\n")')" >> "$GITHUB_OUTPUT"
+
+  # Live round trip against the sandbox Jira. The secrets live in the "jira-sandbox" environment and belong to a
+  # sandbox-only service account (security review F-14). A skipped test fails the job: release checks must run them.
+  contract:
+    name: contract (${{ matrix.line }})
+    needs: lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: jira-sandbox
+    strategy:
+      fail-fast: false
+      max-parallel: 1 # one live run at a time against the sandbox
+      matrix:
+        line: ${{ fromJSON(needs.lines.outputs.matrix) }}
+    env:
+      LINE: ${{ matrix.line }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No NuGet cache on the one job that holds live secrets: a cache a branch filled must not run beside them
+      # (M4 review SEC-M4-2). The locked restore pins every package by content hash anyway.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Restore (locked)
+        run: dotnet restore tests/Umbraco.Community.Automate.Jira.ContractTests --locked-mode -p:AutomateMajor="$LINE"
+      - name: Contract tests
+        env:
+          JIRA_CONTRACT_SITE: ${{ secrets.JIRA_CONTRACT_SITE }}
+          JIRA_CONTRACT_EMAIL: ${{ secrets.JIRA_CONTRACT_EMAIL }}
+          JIRA_CONTRACT_TOKEN: ${{ secrets.JIRA_CONTRACT_TOKEN }}
+          JIRA_CONTRACT_PROJECT: ${{ secrets.JIRA_CONTRACT_PROJECT }}
+          JIRA_CONTRACT_CLOUDID: ${{ secrets.JIRA_CONTRACT_CLOUDID }}
+        run: |
+          set -euo pipefail
+          dotnet test tests/Umbraco.Community.Automate.Jira.ContractTests --no-restore -p:AutomateMajor="$LINE" \
+            --logger "console;verbosity=normal" | tee "$RUNNER_TEMP/contract.log"
+          grep -qE 'Passed!.*Failed: +0, Passed: +2, Skipped: +0' "$RUNNER_TEMP/contract.log" \
+            || { echo "Expected 2 passed and 0 skipped; set the jira-sandbox environment secrets." >&2; exit 1; }
+
+  integration-sqlserver:
+    name: integration on SQL Server (${{ matrix.line }})
+    needs: lines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        line: ${{ fromJSON(needs.lines.outputs.matrix) }}
+    env:
+      LINE: ${{ matrix.line }}
+      Tests__Database__DatabaseType: SqlServer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A random password per run, masked; nothing is stored in the repo (portfolio CI rules 12 and 13).
+      - name: Start SQL Server with a random throwaway password
+        run: |
+          set -euo pipefail
+          pw="Ci-$(openssl rand -hex 16)-Aa1!"
+          echo "::add-mask::$pw"
+          docker run -d --name sqlserver -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$pw" -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+          for _ in $(seq 1 60); do
+            docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$pw" -C -Q 'SELECT 1' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$pw" -C -Q 'SELECT 1' >/dev/null
+          echo "Tests__Database__SQLServerMasterConnectionString=Server=localhost,1433;User Id=sa;Password=$pw;TrustServerCertificate=true;Encrypt=false" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.*.lock.json'
+      - name: Restore (locked)
+        run: dotnet restore tests/Umbraco.Community.Automate.Jira.IntegrationTests --locked-mode -p:AutomateMajor="$LINE"
+      - name: Integration tests on SQL Server
+        run: dotnet test tests/Umbraco.Community.Automate.Jira.IntegrationTests --no-restore -p:AutomateMajor="$LINE" --logger "console;verbosity=minimal"

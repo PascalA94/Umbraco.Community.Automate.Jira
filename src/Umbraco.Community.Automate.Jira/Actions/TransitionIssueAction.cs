@@ -135,6 +135,6 @@ public sealed class TransitionIssueAction : ActionBase<TransitionIssueSettings, 
         return transitions.Count > MaxListed ? $"{listed} and {transitions.Count - MaxListed} more" : listed;
     }
 
-    // The requested value is a bound input; it is echoed only in short form.
-    private static string Short(string value) => JiraResponseHandler.Truncate(value.ReplaceLineEndings(" "));
+    // The requested value is a bound input, often from a webhook (untrusted text), so it is echoed cleaned and short.
+    private static string Short(string value) => JiraResponseHandler.SafeText(value);
 }

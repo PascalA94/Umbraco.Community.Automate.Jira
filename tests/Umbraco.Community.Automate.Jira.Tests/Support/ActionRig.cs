@@ -18,15 +18,24 @@ internal sealed class ActionRig
     public const string CloudId = "6f9619ff-8b86-d011-b42d-00c04fc964ff";
     public const string TokenKey = "Umbraco:Automate:Jira:Credentials:acme:ApiToken";
 
-    public ActionRig(string token = "TOKEN-SENTINEL-ACT")
+    public const string Email = "svc-act@x.com";
+
+    public ActionRig(string token = "TOKEN-SENTINEL-ACT", IDictionary<string, string?>? extraConfig = null)
     {
         Fake = new FakeJiraHandler();
         Provider = TestHost.Compose(
-            b => b.AddInMemoryCollection(new Dictionary<string, string?>
+            b =>
             {
-                ["Umbraco:Automate:Jira:Credentials:acme:Email"] = "svc-act@x.com",
-                [TokenKey] = token,
-            }),
+                b.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Umbraco:Automate:Jira:Credentials:acme:Email"] = Email,
+                    [TokenKey] = token,
+                });
+                if (extraConfig is not null)
+                {
+                    b.AddInMemoryCollection(extraConfig);
+                }
+            },
             Fake);
         Connection = new JiraConnectionSettings { SiteUrl = "https://acme.atlassian.net", CredentialName = "acme", CloudId = CloudId };
     }

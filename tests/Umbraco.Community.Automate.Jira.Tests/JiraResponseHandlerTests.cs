@@ -8,6 +8,46 @@ public class JiraResponseHandlerTests
 {
     private const string Host = "acme.atlassian.net";
 
+    // M2 security review SEC-03: Jira-supplied names reach run logs, errors and outputs, so control and bidi
+    // characters (which can reorder or hide text in a log view) are removed before anything else sees them.
+    [Theory]
+    [InlineData("Done\u202Eenod", "Doneenod")]
+    [InlineData("In\u2066 Progress\u2069", "In Progress")]
+    [InlineData("\u200EDone\u200F\u061C", "Done")]
+    [InlineData("Line one\nLine two\r\tend", "Line one Line two  end")]
+    [InlineData("a\u0000b\u001Bc\u007Fd\u0085e", "a b c d e")]
+    [InlineData("a\u2028b\u2029c", "a b c")]
+    [InlineData("Emoji \U0001F469\u200D\U0001F4BB stays", "Emoji \U0001F469\u200D\U0001F4BB stays")]
+    public void SafeText_RemovesControlAndBidiCharacters(string raw, string expected)
+    {
+        Assert.Equal(expected, JiraResponseHandler.SafeText(raw));
+    }
+
+    [Fact]
+    public void SafeText_CutsAfterCleaning()
+    {
+        var cleaned = JiraResponseHandler.SafeText(new string('\u202E', 50) + new string('x', 300));
+
+        Assert.Equal(new string('x', JiraResponseHandler.MaxMessageLength), cleaned);
+    }
+
+    [Fact]
+    public void ErrorMessages_FromJira_AreSafeText()
+    {
+        var ex = JiraResponseHandler.Map(
+            System.Net.HttpStatusCode.BadRequest,
+            """{"errorMessages":["bad\u202Evalue\nnext"],"errors":{"sum\u2066mary":"too\u0007long"}}""",
+            requestId: null,
+            retryAfterSeconds: null,
+            notFoundSubject: null);
+
+        Assert.DoesNotContain('\u202E', ex.Message);
+        Assert.DoesNotContain('\u2066', ex.Message);
+        Assert.DoesNotContain('\u0007', ex.Message);
+        Assert.DoesNotContain('\n', ex.Message);
+        Assert.Contains("badvalue next", ex.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Truncate_ShortTextIsUnchanged()
     {

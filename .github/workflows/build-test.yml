@@ -1,7 +1,8 @@
 name: build-test
 
 # Required status checks (set in the branch ruleset): "build-test (<line>, floor)", "build-test (<line>, latest)",
-# "gitleaks" and "docs-guard". The daily schedule exercises a new Automate release without waiting for a PR.
+# "gitleaks", the osv-scanner job (a reusable workflow, so its check is named "osv-scanner / <called job>": copy the
+# exact name from the first PR run) and "docs-guard". The daily schedule exercises a new Automate release without waiting for a PR.
 on:
   pull_request:
   push:
@@ -63,6 +64,10 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+          # NuGet cache keyed on the per-line lock files. Never used in publish.yml, so a release never restores
+          # from a cache a PR filled.
+          cache: true
+          cache-dependency-path: '**/packages.*.lock.json'
 
       # Floor: the pinned floor versions, restored from the committed per-line lock files.
       # --locked-mode is floor-only, because a floating version cannot be locked.
@@ -75,6 +80,12 @@ jobs:
       - name: Vulnerable packages (floor)
         if: matrix.leg == 'floor'
         run: scripts/vulnerable-check.sh "$LINE"
+      # Plan review P1: the packed README is the reviewed one, and no demo or seed file ships.
+      - name: Packed README (floor)
+        if: matrix.leg == 'floor'
+        run: |
+          scripts/pack.sh "$LINE" "$RUNNER_TEMP/pkg"
+          for pkg in "$RUNNER_TEMP"/pkg/*.nupkg; do scripts/check-packed-readme.sh "$pkg"; done
 
       # Latest: floating Automate and CMS for the line, no lock file, so the isolation suite re-runs on every release.
       - name: Restore (latest, floating)
@@ -115,6 +126,34 @@ jobs:
       - name: Scan full history
         run: |
           "$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --redact --exit-code 1
+      # The sample rules the README offers users catch what it says they catch (M4 review SEC-M4-3).
+      - name: Sample rules for users
+        run: scripts/check-gitleaks-sample.sh "$RUNNER_TEMP/gitleaks/gitleaks"
+
+  # The lock files are named per line, which osv-scanner does not recognise, so each is passed explicitly.
+  # Add a new test or demo project's lock files here.
+  osv:
+    name: osv-scanner
+    # security-events: write is unused (upload-sarif is false) but kept: a caller must grant what the called
+    # workflow's job declares, or the run fails to start. Recheck when the action is upgraded.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+    with:
+      fail-on-vuln: true
+      upload-sarif: false
+      scan-args: |-
+        --config=./osv-scanner.toml
+        --lockfile=packages.lock.json:./src/Umbraco.Community.Automate.Jira/packages.17.lock.json
+        --lockfile=packages.lock.json:./src/Umbraco.Community.Automate.Jira/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.Tests/packages.17.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.Tests/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.IntegrationTests/packages.17.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.IntegrationTests/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.ContractTests/packages.17.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.ContractTests/packages.18.lock.json
 
   docs-guard:
     name: docs-guard

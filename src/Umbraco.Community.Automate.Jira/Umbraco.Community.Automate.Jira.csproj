@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Title>Jira connector for Umbraco Automate</Title>
-    <Description>Jira Cloud connection and actions for Umbraco Automate. Work in progress, not yet functional.</Description>
+    <Description>Jira Cloud for Umbraco Automate: create issues, add comments, move issues and start automations from signed Jira webhooks. Credentials stay in configuration, never in automations.</Description>
     <PackageReadmeFile>docs\README.md</PackageReadmeFile>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <StaticWebAssetBasePath>App_Plugins/UmbracoCommunityAutomateJira</StaticWebAssetBasePath>
@@ -53,6 +53,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Umbraco.Community.Automate.Jira.Tests" />
+    <InternalsVisibleTo Include="Umbraco.Community.Automate.Jira.ContractTests" />
   </ItemGroup>
 
   <ItemGroup>

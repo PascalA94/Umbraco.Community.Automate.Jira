@@ -27,6 +27,22 @@ internal sealed class UmbracoCommunityAutomateJiraSchema
     public sealed class JiraDefinition
     {
         /// <summary>
+        /// The timeout for each Jira request, in seconds. Default 30; values below 1 are raised to 1.
+        /// </summary>
+        public int TimeoutSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// How long the issue types of a project are cached, in minutes. Default 10.
+        /// </summary>
+        public int IssueTypeCacheMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// The accepted age of a signed Jira webhook delivery, and how long a delivery is remembered to refuse a
+        /// replay, in minutes. Default 120; clamped to 10..1440. The replay memory is per node.
+        /// </summary>
+        public int ReplayWindowMinutes { get; set; } = 120;
+
+        /// <summary>
         /// Jira credentials, keyed by the credential name that a Jira connection or webhook authenticator refers to.
         /// The name is 1 to 32 lower-case letters or digits.
         /// </summary>

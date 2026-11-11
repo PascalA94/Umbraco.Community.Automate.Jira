@@ -340,7 +340,32 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - **Message (record only):** `fix: address M3 review (exact F-01 seed checks, status by fieldId, find alias and whitespace, approval prompt)`
 - **Deferred minors and rulings:** listed in the ledger (`.superpowers/sdd/plan/progress.md`, lines starting "Task 16", "Task 17", "Task 17a" and "M3").
 
-## Paused here (2026-11-11, after M3)
+## Checkpoint: Task 18 (record)
+
+- **Message (record only):** `test: assert secrets never leak; ship appsettings schema`
+- `SecretLeakTests` (38 cases: three actions and Validate, each against 200, 400, 401, 429, 500, 302, network error and timeout; signed, wrong, replayed and unsigned webhooks; the signature header declared for stripping; stored settings hold names only).
+- The schema now lists `TimeoutSeconds`, `IssueTypeCacheMinutes` and `ReplayWindowMinutes`; credentials have no defaults.
+- SEC-03: every name and error message Jira supplies passes through `SafeText` (control characters become spaces, bidi controls are removed).
+- `./scripts/test.sh`: 921/921 unit and 11/11 integration on 17 and 18.
+
+## Checkpoint: Task 19 (record)
+
+- **Message (record only):** `ci: add publish, release checks and live contract tests`
+- `publish.yml` (tag `v18.<minor>.<patch>[-suffix]` packs every line; trusted publishing behind the `nuget` environment), `release-checks.yml` (by hand: live contract tests in the `jira-sandbox` environment, integration tests on SQL Server), `scripts/pack.sh`, `scripts/check-packed-readme.sh`, the packed-README step in `build-test.yml`.
+- Portfolio CI rules that were missing: osv-scanner job and `osv-scanner.toml`, NuGet cache, Dependabot `open-pull-requests-limit: 0`.
+- Contract tests: 2 skipped without env on both lines. **Not run live** (no `JIRA_CONTRACT_*` in this session).
+
+## Checkpoint: Task 20 (record)
+
+- **Message (record only):** `docs: add README, security policy, runbook and Marketplace metadata`
+- README rewritten for 1.0 (credentials, claims, service account, every action, dedupe, webhooks, recipes, the Advanced publishing section behind its warning, GDPR, configuration). `ReadmeTests` pin the use case 4 section.
+- `SECURITY.md`, `RUNBOOK.md` (repo root: `docs/` keeps only design, plan and spikes), `eng/gitleaks-jira-credentials.toml`, `umbraco-marketplace.json`, `umbraco-marketplace-readme.md`, `CHANGELOG.md`, issue templates, `.github/CONTRIBUTING.md`, package description.
+
+## Task 20a (Pascal, not started)
+
+- Deploy round-trip on Umbraco Cloud. Blocks Task 21 (beta). See plan Task 20a. Also check whether Cloud accepts `Umbraco__Automate__Jira__Credentials__…` secrets (see the pause note).
+
+## Paused here (2026-11-11, after M3) (superseded by the M4 note below)
 
 - **Why:** M3 is finished, and the rule is one milestone per session.
 - **Next task:** Task 18 (cross-cutting secret-leak test and appsettings schema), the start of M4.
@@ -381,7 +406,7 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
     - The design 6.4 wording.
 - **Resume:** run the milestone commit below, then start a fresh session and say "continue".
 
-## Milestone commit (M3)
+## Milestone commit (M3) (done: c977442)
 
 1. Check nothing unwanted is pending. Use `-uall`, so files inside new folders are listed. There should be no `.db`, `umbraco/Data`, index, `bin/`, `obj/`, `.superpowers/`, `appsettings.Local.json`, review or transcript files:
 
@@ -396,6 +421,67 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
    git add -A
    git commit -m "feat: add Jira webhook authenticator, webhook parser and Find content by Jira key (M3)" \
      -m "community.jira.signature: one X-Hub-Signature, HMAC-SHA256 compared in fixed time only (banned-API analyser and IL test), secret of 32+ characters from the package credential store, body read by the endpoint and refused if decoding changed it, timestamp window and an atomic replay check in the guard's own bounded cache, fails closed on any exception. community.jira.readWebhookEvent: typed, minimal fields from the webhook body, duplicate keys and deep nesting refused, status change by fieldId, untrusted text labelled. community.jira.findContentByKey: one InternalIndex query and one batch load, exact draft match, counted before permissions, stale types and variant properties fail closed, integration tests on a real index for both lines. Demo: disabled use case 4 seed with approval and UpdateDate recheck, pinned by seed graph tests. M3 review fixes."
+   ```
+
+3. Check: `git log -1 --stat --oneline | head -5`
+
+## M4 review fixes (record)
+
+- **Reviews:** both read the M4 diff (`c977442` to the working tree) and the files it touches.
+  - `qa-reviewer`: passed with findings (1 major, 10 minor).
+  - `security-analyst`: approved with conditions (5 medium, 7 low, no Critical).
+- **Fixed, each with a test that failed first or a mutation that is now caught:**
+  - The sample gitleaks rules now catch flat keys, `.env` and `launchSettings.json`, and no longer fire on Umbraco's own `Email` settings. `scripts/check-gitleaks-sample.sh` proves it in the gitleaks CI job.
+  - Transition's echo of the requested value goes through `SafeText`.
+  - The leak tests run each action's real success path, prove the credential was sent, and prove the leak check can fail.
+  - Schema tests check the root wiring and that every `JiraOptions` setting is in the schema.
+  - Workflows: anchored CHANGELOG check, numeric line guard in publish, no NuGet cache on the job holding the sandbox token.
+  - Docs: the GitHub and nuget.org settings the release relies on (CONTRIBUTING), Cloud warnings, the runbook keeps evidence, two more use case 4 residuals, Marketplace wording.
+- **Message (record only):** `fix: address M4 review (gitleaks sample rules, leak test coverage, release settings, docs)`
+- **Deferred minors:** pin the SQL Server image by digest; name the approver output once confirmed; screenshots and `icon.svg`.
+
+## Paused here (2026-11-11, after M4)
+
+- **Why:** M4 is finished, and the rule is one milestone per session.
+- **Next task:** Task 21 (beta), the start of M5. **It is blocked** until your items below are done.
+- **Running:** nothing. No subagents, background tasks or demo site are running.
+- **State:**
+  - `./scripts/test.sh` passes on lines 17 and 18: 929/929 unit tests and 11/11 integration tests each.
+  - The contract tests skip (2 per line) without `JIRA_CONTRACT_*`. **They have not run live.**
+  - `scripts/vulnerable-check.sh 17` and `18` exit 0. The demo builds on 17 and 18. `docs-guard` ok. actionlint clean.
+  - `pack.sh` 17 and 18 plus `check-packed-readme.sh`: ok. gitleaks finds no leaks in the M4 file set.
+  - **CI has not run on GitHub.** The new workflows (`publish.yml`, `release-checks.yml`, osv-scanner, the packed-README and gitleaks-sample steps) are only linted.
+- **Your decisions (Pascal decides):**
+  1. **Umbraco Cloud secret names (new in M4).** Umbraco Cloud's Secrets Management page (read 2026-11-11) lists `UMBRACO_` as a restricted prefix, and its allowed `Umbraco__…` prefixes don't include `Umbraco__Automate__`. Cloud may refuse `Umbraco__Automate__Jira__Credentials__…`. Check it in Task 20a. If Cloud refuses and Support won't allow it, choosing another key source is a design change (solutions-architect, then you).
+  2. **SEC-M3-4** (still open from M3): accept the save-between-recheck-and-publish residual (the README now documents it), or add a guarded publish step before beta.
+  3. **SEC-M4-7:** name the second person who can rotate credentials (`RUNBOOK.md`, `[[SECOND-PERSON]]`).
+- **Your to-dos before Task 21:**
+  - **Task 20a:** the Deploy round-trip on an Umbraco Cloud sandbox (plan Task 20a), including whether Cloud accepts the secret names.
+  - **GitHub and nuget.org settings** listed in `.github/CONTRIBUTING.md` under "Repository settings the release relies on": the `v*` tag ruleset, the `nuget` and `jira-sandbox` environments (reviewers, branch rules, secrets) and the NuGet trusted publishing policy.
+  - **First CI run:** push, open the PR, check every job, then run `release-checks` by hand. Copy the osv-scanner check's exact name into the ruleset.
+  - **Contract tests live:** set `JIRA_CONTRACT_SITE`, `JIRA_CONTRACT_EMAIL`, `JIRA_CONTRACT_TOKEN`, `JIRA_CONTRACT_PROJECT` (and `JIRA_CONTRACT_CLOUDID` for the scoped token) for a sandbox-only account, then run `dotnet test tests/Umbraco.Community.Automate.Jira.ContractTests -p:AutomateMajor=18`. Expected: `Passed: 2`. It prints the dedupe search lag.
+  - **Carried from M3:** the M1 and M2 live checks, Task 17a step 6 (use case 4 on SBX, with the extra confirmations listed in the M3 note), the real Jira delivery capture through a tunnel, and the scope list check (a token with exactly `read:jira-work`, `write:jira-work` and `read:jira-user`).
+  - **Presentation:** 2-3 demo screenshots with fake data for the README and `umbraco-marketplace.json`.
+  - Task 22 step 8 greps `docs/runbook.md`. The runbook is now `RUNBOOK.md` at the root, so grep that instead.
+- **Resume:** run the milestone commit below, do the blocking items, then start a fresh session and say "continue".
+
+## Milestone commit (M4)
+
+1. Check nothing unwanted is pending. Use `-uall`, so files inside new folders are listed. There should be no `.db`, `umbraco/Data`, index, `bin/`, `obj/`, `.superpowers/`, `appsettings.Local.json`, review or transcript files:
+
+   ```sh
+   cd ~/Projects/Umbraco.Community.Automate.Jira
+   git status --short -uall | grep -i -E '\.db|sqlite|umbraco/(data|logs)|ExamineIndexes|TEMP/|/bin/|/obj/|\.superpowers|appsettings\.local|review|transcript' || echo "clean"
+   ```
+
+   It printed "clean" on 2026-11-11. If anything is listed, stop and check it.
+
+2. Commit:
+
+   ```sh
+   git add -A
+   git commit -m "feat: harden secrets, add release workflows and 1.0 docs (M4)" \
+     -m "Secret-leak tests across every action, Validate and the webhook path, with a positive control. Jira-supplied names and messages pass through SafeText (control and bidi characters). appsettings schema lists every option. CI: publish.yml (one v tag packs every line, trusted publishing behind the nuget environment), release-checks.yml (live contract tests, integration on SQL Server), osv-scanner, packed-README and gitleaks-sample checks, NuGet cache, Dependabot limit 0. Live contract test project. README, SECURITY.md, RUNBOOK.md, CONTRIBUTING, issue templates, Marketplace metadata, sample gitleaks rules. M4 review fixes."
    ```
 
 3. Check: `git log -1 --stat --oneline | head -5`

@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in the package does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Security problem? Do not open an issue. Report it privately (see the link on the previous page). Never paste a token, webhook secret or real form data."
+  - type: input
+    id: package
+    attributes:
+      label: Package version
+      placeholder: "18.0.0"
+    validations:
+      required: true
+  - type: input
+    id: umbraco
+    attributes:
+      label: Umbraco CMS and Umbraco Automate versions
+      placeholder: "CMS 18.3.1, Automate 18.5.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options: [SQLite, SQL Server, Azure SQL, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The automation's trigger and steps, and the step settings involved (credential names are fine, values are not).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: Include the run's error message and category. Remove issue contents and account IDs if they are personal.
+    validations:
+      required: true

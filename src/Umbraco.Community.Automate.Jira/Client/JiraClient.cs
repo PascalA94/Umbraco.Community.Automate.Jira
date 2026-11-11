@@ -41,7 +41,7 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
         }
 
         var displayName = ReadString(doc.RootElement, "displayName");
-        return new JiraUser(accountId, JiraResponseHandler.Truncate(string.IsNullOrWhiteSpace(displayName) ? accountId : displayName));
+        return new JiraUser(accountId, JiraResponseHandler.SafeText(string.IsNullOrWhiteSpace(displayName) ? accountId : displayName));
     }
 
     public async Task<Guid?> GetTenantCloudIdAsync(Uri siteBase, CancellationToken ct)
@@ -99,7 +99,7 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
             var name = ReadString(item, "name");
             if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(name))
             {
-                types.Add(new JiraIssueType(id, JiraResponseHandler.Truncate(name)));
+                types.Add(new JiraIssueType(id, JiraResponseHandler.SafeText(name)));
             }
         }
 
@@ -282,7 +282,7 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
                 ? ReadString(status, "name")
                 : null;
 
-        return string.IsNullOrWhiteSpace(name) ? throw JiraResponseHandler.InvalidResponse() : JiraResponseHandler.Truncate(name);
+        return string.IsNullOrWhiteSpace(name) ? throw JiraResponseHandler.InvalidResponse() : JiraResponseHandler.SafeText(name);
     }
 
     public async Task<IReadOnlyList<JiraTransition>> GetTransitionsAsync(JiraTarget target, string issueKey, CancellationToken ct)
@@ -312,7 +312,7 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
             // The ID goes back to Jira in a request body, so only a numeric one is kept.
             if (JiraIdentifiers.IsNumericId(id) && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(to))
             {
-                transitions.Add(new JiraTransition(id!.Trim(), JiraResponseHandler.Truncate(name), JiraResponseHandler.Truncate(to)));
+                transitions.Add(new JiraTransition(id!.Trim(), JiraResponseHandler.SafeText(name), JiraResponseHandler.SafeText(to)));
             }
         }
 

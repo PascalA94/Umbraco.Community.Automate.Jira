@@ -1,0 +1,6 @@
+# osv-scanner config, passed with --config=./osv-scanner.toml (portfolio CI rule 6).
+#
+# The per-line lock files (packages.17.lock.json, packages.18.lock.json) are not a file name osv-scanner knows,
+# so build-test.yml passes each one with --lockfile=packages.lock.json:<path>. Those pin the resolved versions.
+# csproj ranges such as [18.3.0, 19.0.0) can be read as versions and match advisories fixed long before the
+# floor; ignore any such finding here by ID, with a reason. None so far (2026-11-11, osv-scanner 2.7.1).
