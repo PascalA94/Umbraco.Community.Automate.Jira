@@ -518,3 +518,42 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - **After you commit and push:** tag `credential-helper-1.0.1` (`git tag credential-helper-1.0.1 && git push origin credential-helper-1.0.1`). Tell the Teams and Deploy hooks owners to re-copy all three files.
 - **New blocker for Task 21 (security-analyst, escalated):** re-run Task 0 step 7 (the council test 10 surfaces) on Automate 17.6.0 and 18.6.0 before the beta tag. See `docs/spikes.md`, "Automate 17.6.0 and 18.6.0".
 - **Still to do:** the `main` branch ruleset, once a green run shows the check names.
+
+## GitHub settings, continued (2026-11-11)
+
+- CI on `719477e` passed: all four `build-test` legs, gitleaks, `osv-scanner / osv-scan`, docs-guard. Tag `credential-helper-1.0.1` is pushed.
+- Branch ruleset "main" is active on the default branch:
+  - a pull request is required (0 approvals, since you're the only maintainer);
+  - required checks: `build-test (17, floor)`, `build-test (17, latest)`, `build-test (18, floor)`, `build-test (18, latest)`, `gitleaks`, `osv-scanner / osv-scan`, `docs-guard`;
+  - no force-push or deletion;
+  - nobody can bypass it.
+- **From now on, milestone commits go on a branch and through a PR.** `main` refuses a direct push. The milestone commit blocks below use `git switch -c`, `git push -u` and `gh pr create`.
+- `credential-helper-1.0.0` exists only as a local tag. Push it too if consumers need the old version: `git push origin credential-helper-1.0.0`.
+
+## release-checks, first run (2026-11-11, record)
+
+- Integration on SQL Server (17 and 18): passed.
+- Contract (17 and 18): **failed**. Both tests failed within milliseconds at the first Create Jira issue call, on both lines, so the cause is the `jira-sandbox` configuration, not the code. The test only asserted `Success`, so the reason was lost.
+- Likeliest cause: `JIRA_CONTRACT_SITE` holds more than the site root. The package rejects any path before calling Jira (`JiraSiteUrlTests`). Its value must be exactly `https://pascal-sandbox.atlassian.net`.
+- Fix in the tests: `LiveRoundTripTests` now prints the failure category and the exception message (not the stack) for any step that does not succeed. Both lines build. Because `main` now requires a PR, this goes in on a branch.
+- **Message (record only):** `test: print the reason when a live contract step fails`
+
+## Paused here (2026-11-11, before M5)
+
+- **Why:** this session only cleared the items blocking M5. M5 has not started.
+- **Next task:** Task 21 step 1, starting with Task 0 step 7 (the council test 10 surfaces) re-run on Automate 17.6.0 and 18.6.0:
+  - the spike sites on both versions, with `scan-surfaces.py`;
+  - a Swagger endpoint diff between 18.5.1 and 18.6.0;
+  - a read of both release notes.
+  - It is UNKNOWN and escalated by security-analyst, and it blocks the beta tag.
+- **Running:** nothing.
+- **State:**
+  - `main` is at `719477e` and CI is green on all legs.
+  - Contract 1.0.1 is frozen and tagged.
+  - Task 20a is recorded with no UNKNOWN.
+  - The GitHub settings are all done: public repo, secret scanning and push protection, CodeQL through the workflow, the `nuget` and `jira-sandbox` environments with their secrets, the tag ruleset and the `main` ruleset.
+- **Your to-dos before the next session:**
+  - Run `release-checks` by hand (Actions → release-checks → Run workflow, then approve the `jira-sandbox` deployment). Expected: the contract tests `Passed: 2`.
+  - Export `JIRA_CONTRACT_*` and `Umbraco__Automate__Jira__Credentials__sandbox__Email|ApiToken` (plus `JIRA_SANDBOX_SITE=https://pascal-sandbox.atlassian.net`) in the terminal you start `claude` from.
+- **Only change since `719477e`:** this file. It goes in with the M5 milestone commit, through a PR, because `main` now requires one.
+- **Resume:** start a fresh session and say "continue".
