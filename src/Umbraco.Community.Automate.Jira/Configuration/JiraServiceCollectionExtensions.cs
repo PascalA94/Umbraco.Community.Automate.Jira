@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Umbraco.Community.Automate.Jira.Adf;
 using Umbraco.Community.Automate.Jira.Client;
 using Umbraco.Community.Automate.Jira.Credentials;
+using Umbraco.Community.Automate.Jira.Webhooks;
 
 namespace Umbraco.Community.Automate.Jira.Configuration;
 
@@ -49,6 +50,9 @@ public static class JiraServiceCollectionExtensions
         services.AddScoped<IJiraClient, JiraClient>();
         services.AddMemoryCache();
         services.AddScoped<IIssueTypeResolver, IssueTypeResolver>();
+
+        // Singleton, or the replay check-and-add lock would not be shared between requests (F-03, plan P5).
+        services.AddSingleton<WebhookReplayGuard>();
         return services;
     }
 }

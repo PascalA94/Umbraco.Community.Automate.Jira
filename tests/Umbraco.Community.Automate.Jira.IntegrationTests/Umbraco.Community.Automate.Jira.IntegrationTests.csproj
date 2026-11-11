@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>Umbraco.Community.Automate.Jira.IntegrationTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Umbraco.Cms.Tests.Integration requires 18.10.1 or later (NU1605 against the xUnit project's 17.13.0). -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" VersionOverride="18.10.1" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" PrivateAssets="all" />
+    <PackageReference Include="Umbraco.Cms.Tests.Integration" />
+    <!-- The package pins OpenTelemetry.Api with PrivateAssets, so a ProjectReference consumer must reference it
+         itself or fail to load it (the same as the demo site, M1 Task 8 ruling). -->
+    <PackageReference Include="OpenTelemetry.Api" />
+    <!-- The root transitive pins sit below what Umbraco.Cms.Tests.Integration needs (NU1109), so this test-only
+         project raises them to the harness's own minimums. -->
+    <PackageReference Include="MessagePack" VersionOverride="3.1.11" />
+    <PackageReference Include="Moq" VersionOverride="4.21.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Umbraco.Community.Automate.Jira\Umbraco.Community.Automate.Jira.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Umbraco's harness reads Tests:Database from this file in the test output folder. -->
+    <None Include="appsettings.Tests.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

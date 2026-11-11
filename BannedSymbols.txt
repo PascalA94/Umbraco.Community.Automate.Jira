@@ -1,2 +1,8 @@
-# Roslyn banned-API list. Wired to the compiler by Task 16 (Microsoft.CodeAnalysis.BannedApiAnalyzers),
-# which bans SequenceEqual for secret comparison. Empty until then.
+# Roslyn banned-API list (Microsoft.CodeAnalysis.BannedApiAnalyzers), wired in the package csproj.
+# Plan P5: secrets and signatures are compared only with CryptographicOperations.FixedTimeEquals.
+M:System.Linq.Enumerable.SequenceEqual``1(System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IEnumerable{``0});Compare secrets with CryptographicOperations.FixedTimeEquals
+M:System.Linq.Enumerable.SequenceEqual``1(System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IEnumerable{``0},System.Collections.Generic.IEqualityComparer{``0});Compare secrets with CryptographicOperations.FixedTimeEquals
+M:System.MemoryExtensions.SequenceEqual``1(System.Span{``0},System.ReadOnlySpan{``0});Compare secrets with CryptographicOperations.FixedTimeEquals
+M:System.MemoryExtensions.SequenceEqual``1(System.ReadOnlySpan{``0},System.ReadOnlySpan{``0});Compare secrets with CryptographicOperations.FixedTimeEquals
+M:System.MemoryExtensions.SequenceEqual``1(System.Span{``0},System.ReadOnlySpan{``0},System.Collections.Generic.IEqualityComparer{``0});Compare secrets with CryptographicOperations.FixedTimeEquals
+M:System.MemoryExtensions.SequenceEqual``1(System.ReadOnlySpan{``0},System.ReadOnlySpan{``0},System.Collections.Generic.IEqualityComparer{``0});Compare secrets with CryptographicOperations.FixedTimeEquals

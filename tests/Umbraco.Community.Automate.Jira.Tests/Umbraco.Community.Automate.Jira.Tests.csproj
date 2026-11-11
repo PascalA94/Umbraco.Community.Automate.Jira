@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Meziantou.Framework.AtlassianDataFormat" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Moq" />
     <PackageReference Include="Umbraco.Automate.Testing" />
     <!-- Credential isolation suite only (contract section 5.2, I06 and I07): Automate's real registration entry
@@ -35,6 +36,8 @@
   <ItemGroup>
     <!-- Fixtures are read from the output folder so tests never depend on the working directory. -->
     <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The demo's use case 4 seed, read by UseCase4SeedTests (the automated F-01 guard). -->
+    <None Include="..\..\demo\Umbraco.Community.Automate.Jira.TestSite\Seeds\usecase4.automation.json" Link="Seeds\usecase4.automation.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

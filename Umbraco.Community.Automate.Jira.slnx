@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Umbraco.Community.Automate.Jira.Tests/Umbraco.Community.Automate.Jira.Tests.csproj" />
+    <Project Path="tests/Umbraco.Community.Automate.Jira.IntegrationTests/Umbraco.Community.Automate.Jira.IntegrationTests.csproj" />
   </Folder>
 </Solution>

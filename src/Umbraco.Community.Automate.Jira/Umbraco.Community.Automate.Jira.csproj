@@ -9,6 +9,8 @@
     <!-- Razor SDK auto-includes root-level JSON as Content, which collides with the
          explicit include of the generated appsettings-schema JSON below. -->
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <!-- A banned API (BannedSymbols.txt) fails the build rather than warning (plan P5). -->
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
   </PropertyGroup>
 
   <!-- Same toggle as HQ's Slack add-on, off by default: set -p:UseProjectReferences=true and
@@ -37,10 +39,16 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
     <PackageReference Include="Umbraco.JsonSchema.Extensions" PrivateAssets="all" />
+    <!-- Bans SequenceEqual in package code (BannedSymbols.txt, plan P5). Build-time only. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
     <!-- CVE pins (Directory.Packages.props): build and audit only, not consumer dependencies. -->
     <PackageReference Include="MessagePack" PrivateAssets="all" />
     <PackageReference Include="OpenTelemetry.Api" PrivateAssets="all" />
     <PackageReference Include="System.Security.Cryptography.Xml" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\BannedSymbols.txt" />
   </ItemGroup>
 
   <ItemGroup>

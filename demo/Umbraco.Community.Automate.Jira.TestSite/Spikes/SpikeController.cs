@@ -48,7 +48,7 @@ public sealed class SpikeController(
 
     // Scenarios are created, published and (for manual ones) executed in one call.
     [HttpPost("scenario/{name}")]
-    public async Task<IActionResult> Scenario(string name, [FromQuery] string? secret, CancellationToken ct)
+    public async Task<IActionResult> Scenario(string name, [FromQuery] string? secret, [FromQuery] string? credentialName, CancellationToken ct)
     {
         if (!Allowed())
         {
@@ -78,6 +78,39 @@ public sealed class SpikeController(
                     new() { ["allowedMethod"] = "POST", ["authenticator"] = authenticator },
                     [log1, log2, log3], Chain(log1, log2, log3), ct);
                 return Json(new { automationId = created.Id, webhookPath = $"/automate/webhook/{created.Id}" });
+            }
+
+            case "webhook-jira":
+            {
+                // Task 16 step 5: the built-in Webhook trigger with this package's authenticator. The query value is
+                // a credential name (never a secret, SEC16-8); the secret is read from configuration by the package.
+                if (credentialName is null || !System.Text.RegularExpressions.Regex.IsMatch(credentialName, "^[a-z0-9]{1,32}\\z"))
+                {
+                    return BadRequest("credentialName must match ^[a-z0-9]{1,32}$");
+                }
+
+                var authenticator = new Dictionary<string, object?> { ["alias"] = "community.jira.signature", ["settings"] = new Dictionary<string, object?> { ["credentialName"] = credentialName } };
+                var log1 = Step("logMessage", "umbracoAutomate.logMessage", new() { ["message"] = "KEY=${ trigger.body.issue.key }" });
+                var log2 = Step("logHeaders", "umbracoAutomate.logMessage", new() { ["message"] = "HEADERS=${ trigger.headers }" });
+                var created = await CreateAsync(workspace, admin, name + suffix, "umbracoAutomate.webhook",
+                    new() { ["allowedMethod"] = "POST", ["authenticator"] = authenticator },
+                    [log1, log2], Chain(log1, log2), ct);
+                return Json(new { automationId = created.Id, webhookPath = $"/automate/webhook/{created.Id}" });
+            }
+
+            case "seed-workspace":
+            {
+                // Task 17a: lets the demo check the seed import. The real recipe needs a restricted service account
+                // (design 6.8); this one is the demo admin-group API user and is for local checks only.
+                var existing = await workspaces.GetWorkspaceByAliasAsync("jira-pages", ct);
+                var created = existing ?? await workspaces.CreateWorkspaceAsync(new Workspace { Alias = "jira-pages", Name = "Jira pages (demo)", ServiceAccountKey = workspace.ServiceAccountKey }, admin.Key, ct);
+                return Json(new { workspaceId = created.Id, warning = "Demo only: this workspace's service account is in the admin group, so a published recipe here could publish the whole tree. Never publish the seed in this workspace." });
+            }
+
+            case "seed-status":
+            {
+                var seeded = await automations.GetAutomationByAliasAsync("jiraUseCase4", ct);
+                return Json(new { exists = seeded is not null, id = seeded?.Id, steps = seeded?.Steps.Count, published = seeded?.GetType().GetProperty("IsPublished")?.GetValue(seeded) ?? seeded?.GetType().GetProperty("PublishedVersion")?.GetValue(seeded) });
             }
 
             case "foreach":

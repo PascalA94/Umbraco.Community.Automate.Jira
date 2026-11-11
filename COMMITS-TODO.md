@@ -270,3 +270,132 @@ Resumed from the note above, with the M0 and M1 milestone commit in place (`9f3d
    ```
 
 3. Check: `git log -1 --stat --oneline | head -5`
+
+## Resumed (2026-11-11, M3 session)
+
+Resumed from the note above, with the M2 milestone commit in place (`796766f`), to run M3 (Tasks 16, 17 and 17a). The sandbox env vars were not set in this shell (checked by name only), so nothing here reached Jira.
+
+## Checkpoint 19: Task 16 (signature authenticator `community.jira.signature`)
+
+- **Files:**
+  - `Webhooks/` (`JiraSignature.cs`, `JiraSignatureSettings.cs`, `WebhookReplayGuard.cs`, `JiraSignatureWebhookAuthenticator.cs`)
+  - `Configuration/JiraServiceCollectionExtensions.cs` (the guard is a singleton)
+  - `BannedSymbols.txt`, plus the package csproj (`Microsoft.CodeAnalysis.BannedApiAnalyzers`, RS0030 as an error)
+  - `Directory.Packages.props`
+  - tests `JiraSignatureTests.cs`, `JiraSignatureWebhookAuthenticatorTests.cs`, `WebhookReplayGuardTests.cs`, `Support/WebhookRig.cs`, `ArchitectureTests.cs` (the IL scan), and the message-only `KeyFor` pin in `CredentialHelperContract/JiraCredentialStoreContractTests.cs` (the store and hashed suites are unchanged)
+  - the removed stub test
+  - the demo `webhook-jira` scenario
+- **Per-task review:**
+  - `qa-reviewer`: passed with 6 minor findings.
+  - `security-analyst`: approved with conditions (2 medium, 6 low, no Critical).
+  - Fixed, each with a test that failed first:
+    - **SEC16-1:** `RequiresBody` is now true, so a slow sender can no longer hold a thread. A body whose decoded length differs from `Content-Length` fails closed.
+    - **SEC16-2:** the replay guard has its own bounded cache and refuses deliveries when it is full.
+    - **The exact window edges.**
+    - **QA16-1 to QA16-6.**
+    - **SEC16-5, 7 and 8.**
+- **Manual check (demo, line 18, locally generated secret, no Jira):**
+  - Unsigned, wrongly signed, re-sent, re-sent with a new identifier, and a string timestamp all returned 401.
+  - A valid request started one run, with no `X-Hub-Signature` stored.
+  - The uninstall simulation returned 401.
+- **Message (record only):** `feat: add Jira webhook signature authenticator`
+
+## Checkpoint 20: Task 17 (Read Jira webhook event action)
+
+- **Files:** `Actions/ReadWebhookEvent{Action,Settings,Output}.cs`, tests `ReadWebhookEventActionTests.cs`.
+- **Behaviour:**
+  - No connection needed.
+  - A duplicate key, depth over 32, invalid JSON or a missing `webhookEvent` fails as Validation.
+  - A comment body is accepted as a string or as ADF.
+  - The status change is found by `fieldId` first.
+- **Message (record only):** `feat: add Read Jira webhook event action`
+- **Step 6 (yours):** the public HQ issue on `umbraco/Umbraco.Automate`.
+
+## Checkpoint 21: Task 17a (Find content by Jira key, use case 4 recipe)
+
+- **Files:**
+  - `Actions/FindContentByKey{Action,Settings,Output}.cs`, `Actions/ActionFailures.cs`
+  - tests `FindContentByKeyActionTests.cs`, `UseCase4SeedTests.cs`, and the new `tests/Umbraco.Community.Automate.Jira.IntegrationTests/` (NUnit, Umbraco's integration harness, a real InternalIndex, its own `.gitignore`)
+  - `Umbraco.Community.Automate.Jira.slnx`, `Directory.Packages.props`
+  - the test csproj, which links the seed
+  - `demo/.../Seeds/usecase4.automation.json` (disabled) and `Seeds/SeedComposer.cs` (Development only: creates `article`, and imports the seed as a draft once a `jira-pages` workspace exists)
+  - the demo `seed-workspace` and `seed-status` scenarios
+  - `docs/spikes.md`
+- **Integration route:** the plan's primary route now works. See `docs/spikes.md` "Task 17a" for the SetUpFixture fix.
+- **Message (record only):** `feat: add Find content by Jira key action and approval-gated publish recipe`
+- **Not run:** step 6, the manual use case 4 recipe on SBX. It needs the sandbox, a webhook (tunnel) and a restricted workspace.
+
+## M3 review fixes (record)
+
+- **Reviews:** both read the M3 diff (`796766f` to the working tree) and the files it touches.
+  - `qa-reviewer`: passed with findings (2 major, 6 minor).
+  - `security-analyst`: approved with conditions (4 medium, 4 low, no Critical).
+- **Fixed, each with a test that failed first (or a mutation that is now caught):**
+  - The harness's index and schema files are now ignored.
+  - The F-01 seed tests parse the conditions exactly: one AND group, exact operands, `IsNotEmpty` on every recheck operand, and an allowlist of actions. Seven seed mutations now fail.
+  - Find uses the property's real alias, trims ASCII whitespace only, and checks Browse.
+  - The status change is found by `fieldId`, and the seed also requires the issue's status to equal the new status.
+  - The approval prompt names the node key and type, and the Jira account ID.
+  - The demo seeder runs in Development only.
+- **Message (record only):** `fix: address M3 review (exact F-01 seed checks, status by fieldId, find alias and whitespace, approval prompt)`
+- **Deferred minors and rulings:** listed in the ledger (`.superpowers/sdd/plan/progress.md`, lines starting "Task 16", "Task 17", "Task 17a" and "M3").
+
+## Paused here (2026-11-11, after M3)
+
+- **Why:** M3 is finished, and the rule is one milestone per session.
+- **Next task:** Task 18 (cross-cutting secret-leak test and appsettings schema), the start of M4.
+- **Running:** nothing. No subagents, background tasks or demo site are running.
+- **State:**
+  - `./scripts/test.sh` passes on lines 17 and 18: 871/871 unit tests and 11/11 integration tests each.
+  - `scripts/vulnerable-check.sh 17` and `18` both exit 0.
+  - The demo builds on 17 and 18.
+  - `docs-guard` is ok.
+  - gitleaks finds no leaks in the M3 file set.
+- **Your decision, before beta (security review SEC-M3-4, medium):**
+  - Publish Content publishes whatever draft exists when it runs. A save that lands between the UpdateDate recheck and the publish step is published without approval.
+  - Option 1: accept it as a residual and document it in design 6.8 and the README.
+  - Option 2: add a package publish step that checks UpdateDate and publishes in one scope. That is a design change (solutions-architect).
+- **Carry into M4 and later:**
+  - **Task 18:** `SafeText` for Jira-supplied names (SEC-03, from M2). Optionally rate-limit the "secret too short or missing" warning (SEC16-5).
+  - **Task 20, the README:**
+    - one credential name per Jira webhook (SEC16-4);
+    - the duplicate check is only as fresh as the InternalIndex (QA-M3-6, SEC-M3-6);
+    - run logs hold Jira account IDs (SEC-M3-8);
+    - the per-node replay cache;
+    - the M2 items: the 50-comment window, Transition by status name, and the self-loop skip.
+  - **For Teams (03):** don't copy the Jira-specific signature parts (UTF-8 key, `sha256=` hex header, epoch-millisecond body timestamp). Copy the fixed guard (SEC16-6).
+- **Your to-dos (before Task 21):**
+  - **Live checks:** export `JIRA_SANDBOX_SITE` and `Umbraco__Automate__Jira__Credentials__sandbox__Email|ApiToken` (and a 32+ character `…__sbxwh__WebhookSecret`), then run:
+    - the M1 and M2 checks (Validate, create issue, use case 3);
+    - Task 17a step 6, use case 4 on SBX. Use a `jira-pages` workspace whose service account can publish only the Jira pages subtree. Do not use the demo `seed-workspace` scenario's admin account for this.
+  - **Step 6 must also confirm:**
+    - the real authoriser against a node outside the start node;
+    - that `steps.find.*` bindings resolve;
+    - how the If compares the two UpdateDates (sub-second precision);
+    - the approver output name (the seed logs `${ steps.approve }` for now);
+    - the 72-hour timeout outcome.
+  - **Capture a real Jira delivery through a tunnel:** the timestamp unit, whether retry bodies are identical, and the comment body shape. Then replace the synthetic signed fixture.
+  - **Task 17 step 6:** raise the public HQ issue.
+  - **Still open from M2:**
+    - SEC-03: does the backoffice HTML-encode step logs?
+    - The design 6.4 wording.
+- **Resume:** run the milestone commit below, then start a fresh session and say "continue".
+
+## Milestone commit (M3)
+
+1. Check nothing unwanted is pending. Use `-uall`, so files inside new folders are listed. There should be no `.db`, `umbraco/Data`, index, `bin/`, `obj/`, `.superpowers/`, `appsettings.Local.json`, review or transcript files:
+
+   ```sh
+   cd ~/Projects/Umbraco.Community.Automate.Jira
+   git status --short -uall | grep -i -E '\.db|sqlite|umbraco/(data|logs)|ExamineIndexes|TEMP/|/bin/|/obj/|\.superpowers|appsettings\.local|review|transcript' || echo "clean"
+   ```
+
+2. Commit:
+
+   ```sh
+   git add -A
+   git commit -m "feat: add Jira webhook authenticator, webhook parser and Find content by Jira key (M3)" \
+     -m "community.jira.signature: one X-Hub-Signature, HMAC-SHA256 compared in fixed time only (banned-API analyser and IL test), secret of 32+ characters from the package credential store, body read by the endpoint and refused if decoding changed it, timestamp window and an atomic replay check in the guard's own bounded cache, fails closed on any exception. community.jira.readWebhookEvent: typed, minimal fields from the webhook body, duplicate keys and deep nesting refused, status change by fieldId, untrusted text labelled. community.jira.findContentByKey: one InternalIndex query and one batch load, exact draft match, counted before permissions, stale types and variant properties fail closed, integration tests on a real index for both lines. Demo: disabled use case 4 seed with approval and UpdateDate recheck, pinned by seed graph tests. M3 review fixes."
+   ```
+
+3. Check: `git log -1 --stat --oneline | head -5`

@@ -480,3 +480,32 @@ The worst observed lag (0.36 s) is far below Automate's first retry delay (30 s,
   - This gives `Umbraco.Community.Automate.Jira.0.0.1-alpha.nupkg` with Automate `[18.5.1, 19.0.0)` and CMS `[18.3.0, 19.0.0)`.
   - No `community.jira` string is in the assembly.
 - **Push (step 4):** Pascal's. Use a NuGet key scoped to this ID with push scope only and an expiry of 90 days or less, then unlist.
+
+## Task 16: the webhook body, revisited (2026-11-11)
+
+- **Task 3 step 2's raw-bytes ruling is reversed.** With `RequiresBody` false, `Validate` read `Request.Body` before the endpoint had buffered it, so a slow sender held a thread-pool thread for as long as it kept the upload open (per-task security review SEC16-1). The authenticator now sets `RequiresBody => true`: the endpoint reads the body asynchronously, within its payload limit, before `Validate`.
+- **The cost:** the endpoint's `StreamReader` drops a BOM and replaces invalid UTF-8, so the HMAC runs over `Encoding.UTF8.GetBytes(context.Body)`. When `Content-Length` is present and differs from that byte count, the request fails closed (401). Jira sends plain UTF-8, so real deliveries are unaffected. A chunked request (no `Content-Length`) is decided by the HMAC alone.
+- **Checked on the demo (line 18, a locally generated secret, no Jira):**
+  - unsigned, wrongly signed, re-sent, re-sent with a new `X-Atlassian-Webhook-Identifier`, and `"timestamp":"x"` all returned 401;
+  - a valid request returned 202 and started one run, with `KEY=${ trigger.body.issue.key }` bound and no `X-Hub-Signature` in the stored trigger data;
+  - with the authenticator's registration commented out (uninstall simulation), a valid request returned 401 and started no run (F-15).
+- **The replay cache** is the guard's own bounded `MemoryCache` (100,000 entries), not the site's shared `IMemoryCache`, so another component's compaction or `SizeLimit` cannot drop entries. When it is full, it refuses new deliveries.
+- **Still UNKNOWN until a live capture (owner Pascal, before Task 21):** the `timestamp` unit, whether retry bodies are byte-identical, and the comment body shape. `Validate_SyntheticJiraShapedDelivery_Passes` runs on the synthetic fixture.
+
+## Task 17a: the integration-test route (2026-11-11)
+
+- **Task 2 step 3a's UNKNOWN is solved: the primary route works.** `Umbraco.Cms.Tests.Integration`'s `GlobalSetupTeardown` reads `Tests:Database` and is a namespace-less NUnit `[SetUpFixture]`. NUnit applies a SetUpFixture only to tests in its own assembly, so in a package's test project it never runs and every fixture fails with "Unsupported test database provider".
+  - **Fix:** a namespace-less `[SetUpFixture]` subclass of `GlobalSetupTeardown` in the test project (`tests/Umbraco.Community.Automate.Jira.IntegrationTests/GlobalSetUp.cs`) and `appsettings.Tests.json` (SQLite) copied to the output folder.
+- **The real InternalIndex:**
+  - Register Umbraco's indexes with `builder.AddExamineIndexes()` in `CustomTestSetup` on a fixture deriving from `ExamineBaseTest`.
+  - The harness does not run the site's notification-driven indexer, so tests index through Umbraco's own `IContentValueSetBuilder`, which builds the same documents a site writes.
+  - A Textstring property is indexed under its alias, drafts included (`InternalIndex_IndexesTextstringUnderAlias`), so design 6.7's [LOW] holds.
+- **Gotchas:**
+  - Use one host per fixture (`NewSchemaPerFixture`). A new host per test reopened the same Lucene directory and answered stale.
+  - Wait until the node's `__Path` is searchable, because the completion event fires before the searcher reopens.
+  - Give each test its own content-type alias. Clearing the index with `CreateIndex()` raced the indexing queue and hung.
+- **Packages:** the project raises `MessagePack` to 3.1.11 and `Moq` to 4.21.0 with `VersionOverride`, because the root transitive pins are lower (NU1109), and uses `Microsoft.NET.Test.Sdk` 18.10.1.
+- **Use case 4 seed:**
+  - `demo/.../Seeds/usecase4.automation.json` is in the Task 3 export shape, plus a top-level `"enabled": false`. Export files have no enabled flag; an automation runs only once published.
+  - `Seeds/SeedComposer.cs` creates the `article` type (invariant Textstring `jiraKey`, fixed key `6a1e0c2b-…`). Once a workspace with the alias `jira-pages` exists, it imports the seed with `ImportAutomationAsync` and never publishes it. Checked on the demo (line 18): imported as an 11-step draft.
+  - The seeder never creates the workspace or its service account: design 6.8 needs a restricted one, which is a manual step.

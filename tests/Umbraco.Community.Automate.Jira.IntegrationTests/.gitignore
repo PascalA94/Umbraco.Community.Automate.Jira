@@ -1,0 +1,4 @@
+# Written by Umbraco's test harness and build targets on every run; never committed.
+umbraco/
+appsettings-schema*.json
+umbraco-package-schema.json

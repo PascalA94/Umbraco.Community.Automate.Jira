@@ -1,0 +1,393 @@
+{
+  "enabled": false,
+  "formatVersion": "1.0",
+  "exportedAt": "2026-11-11T00:00:00+00:00",
+  "exportedFrom": {
+    "product": "Umbraco.Automate",
+    "version": "18.5.1"
+  },
+  "automation": {
+    "id": "4d0c2e7a-5b1f-4c3e-9a8d-1f2e3d4c5b6a",
+    "alias": "jiraUseCase4",
+    "name": "Jira: publish an approved page (use case 4, disabled)",
+    "description": "Jira asks for a page to be published; an Umbraco workspace member approves. Seeded disabled. Read the README section 'Advanced: Jira-driven publishing' before enabling.",
+    "trigger": {
+      "triggerAlias": "umbracoAutomate.webhook",
+      "settings": {
+        "allowedMethod": "POST",
+        "authenticator": {
+          "alias": "community.jira.signature",
+          "settings": {
+            "credentialName": "sbxwh"
+          }
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "actionAlias": "community.jira.readWebhookEvent",
+        "alias": "read",
+        "name": "Read Jira webhook event",
+        "connectionAlias": null,
+        "settings": {
+          "body": "${ trigger.body }"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000002",
+        "actionAlias": "umbracoAutomate.if",
+        "alias": "readyToPublish",
+        "name": "Moved into Ready to publish?",
+        "connectionAlias": null,
+        "settings": {
+          "conditions": {
+            "groups": [
+              {
+                "conditions": [
+                  {
+                    "leftOperand": "${ steps.read.webhookEvent }",
+                    "operator": "Equals",
+                    "rightOperand": "jira:issue_updated"
+                  },
+                  {
+                    "leftOperand": "${ steps.read.statusChangedTo }",
+                    "operator": "Equals",
+                    "rightOperand": "Ready to publish"
+                  },
+                  {
+                    "leftOperand": "${ steps.read.statusChangedFrom }",
+                    "operator": "NotEquals",
+                    "rightOperand": "${ steps.read.statusChangedTo }"
+                  },
+                  {
+                    "leftOperand": "${ steps.read.status }",
+                    "operator": "Equals",
+                    "rightOperand": "${ steps.read.statusChangedTo }"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 150
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000003",
+        "actionAlias": "community.jira.findContentByKey",
+        "alias": "find",
+        "name": "Find content by Jira key",
+        "connectionAlias": null,
+        "settings": {
+          "issueKey": "${ steps.read.issueKey }",
+          "propertyAlias": "jiraKey",
+          "contentTypes": "6a1e0c2b-3d4f-4a5b-8c6d-7e8f9a0b1c2d"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 300
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000004",
+        "actionAlias": "umbracoAutomate.logMessage",
+        "alias": "logRequest",
+        "name": "Log who asked",
+        "connectionAlias": null,
+        "settings": {
+          "message": "Jira account ${ steps.read.userAccountId } asked to publish ${ steps.find.contentKey } for ${ steps.read.issueKey }.",
+          "logLevel": "Information"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 450
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000005",
+        "actionAlias": "umbracoAutomate.requestApproval",
+        "alias": "approve",
+        "name": "Request approval",
+        "connectionAlias": null,
+        "settings": {
+          "prompt": "Jira issue ${ steps.read.issueKey } asks to publish node ${ steps.find.contentKey } (${ steps.find.contentTypeAlias }, currently named '${ steps.find.name }'). Requested by Jira account ${ steps.read.userAccountId } (display name not verified). Open that node and review the current draft before approving.",
+          "timeoutHours": 72
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 600
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000006",
+        "actionAlias": "umbracoAutomate.logMessage",
+        "alias": "logRejected",
+        "name": "Log rejection",
+        "connectionAlias": null,
+        "settings": {
+          "message": "Publication of ${ steps.find.contentKey } for ${ steps.read.issueKey } was rejected.",
+          "logLevel": "Information"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 300,
+          "y": 750
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000007",
+        "actionAlias": "community.jira.findContentByKey",
+        "alias": "findAgain",
+        "name": "Find content by Jira key again",
+        "connectionAlias": null,
+        "settings": {
+          "issueKey": "${ steps.read.issueKey }",
+          "propertyAlias": "jiraKey",
+          "contentTypes": "6a1e0c2b-3d4f-4a5b-8c6d-7e8f9a0b1c2d"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 750
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000008",
+        "actionAlias": "umbracoAutomate.if",
+        "alias": "unchanged",
+        "name": "Draft unchanged since the request?",
+        "connectionAlias": null,
+        "settings": {
+          "conditions": {
+            "groups": [
+              {
+                "conditions": [
+                  {
+                    "leftOperand": "${ steps.findAgain.contentKey }",
+                    "operator": "Equals",
+                    "rightOperand": "${ steps.find.contentKey }"
+                  },
+                  {
+                    "leftOperand": "${ steps.findAgain.updateDate }",
+                    "operator": "Equals",
+                    "rightOperand": "${ steps.find.updateDate }"
+                  },
+                  {
+                    "leftOperand": "${ steps.findAgain.contentKey }",
+                    "operator": "IsNotEmpty",
+                    "rightOperand": ""
+                  },
+                  {
+                    "leftOperand": "${ steps.find.contentKey }",
+                    "operator": "IsNotEmpty",
+                    "rightOperand": ""
+                  },
+                  {
+                    "leftOperand": "${ steps.findAgain.updateDate }",
+                    "operator": "IsNotEmpty",
+                    "rightOperand": ""
+                  },
+                  {
+                    "leftOperand": "${ steps.find.updateDate }",
+                    "operator": "IsNotEmpty",
+                    "rightOperand": ""
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 900
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-000000000009",
+        "actionAlias": "umbracoAutomate.logMessage",
+        "alias": "logChanged",
+        "name": "Log changed draft",
+        "connectionAlias": null,
+        "settings": {
+          "message": "Not published: content changed after the approval request (${ steps.find.contentKey }, ${ steps.read.issueKey }).",
+          "logLevel": "Warning"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 300,
+          "y": 1050
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-00000000000a",
+        "actionAlias": "umbracoAutomate.publishContent",
+        "alias": "publish",
+        "name": "Publish content",
+        "connectionAlias": null,
+        "settings": {
+          "contentKey": "${ steps.findAgain.contentKey }"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 1050
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      },
+      {
+        "id": "10000000-0000-4000-8000-00000000000b",
+        "actionAlias": "umbracoAutomate.logMessage",
+        "alias": "logPublished",
+        "name": "Log publication",
+        "connectionAlias": null,
+        "settings": {
+          "message": "Published ${ steps.findAgain.contentKey } for ${ steps.read.issueKey }; approval: ${ steps.approve }.",
+          "logLevel": "Information"
+        },
+        "inputMappings": {},
+        "position": {
+          "x": 0,
+          "y": 1200
+        },
+        "errorBehavior": "Terminate",
+        "retryInterval": null,
+        "maxRetries": null
+      }
+    ],
+    "connections": [
+      {
+        "sourceStepId": "00000000-0000-0000-0000-000000000000",
+        "targetStepId": "10000000-0000-4000-8000-000000000001",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000001",
+        "targetStepId": "10000000-0000-4000-8000-000000000002",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000002",
+        "targetStepId": "10000000-0000-4000-8000-000000000003",
+        "sourceHandle": "true",
+        "targetHandle": null,
+        "outcome": "true",
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000003",
+        "targetStepId": "10000000-0000-4000-8000-000000000004",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000004",
+        "targetStepId": "10000000-0000-4000-8000-000000000005",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000005",
+        "targetStepId": "10000000-0000-4000-8000-000000000006",
+        "sourceHandle": "rejected",
+        "targetHandle": null,
+        "outcome": "rejected",
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000005",
+        "targetStepId": "10000000-0000-4000-8000-000000000007",
+        "sourceHandle": "approved",
+        "targetHandle": null,
+        "outcome": "approved",
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000007",
+        "targetStepId": "10000000-0000-4000-8000-000000000008",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000008",
+        "targetStepId": "10000000-0000-4000-8000-00000000000a",
+        "sourceHandle": "true",
+        "targetHandle": null,
+        "outcome": "true",
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-000000000008",
+        "targetStepId": "10000000-0000-4000-8000-000000000009",
+        "sourceHandle": "false",
+        "targetHandle": null,
+        "outcome": "false",
+        "filter": null
+      },
+      {
+        "sourceStepId": "10000000-0000-4000-8000-00000000000a",
+        "targetStepId": "10000000-0000-4000-8000-00000000000b",
+        "sourceHandle": null,
+        "targetHandle": null,
+        "outcome": null,
+        "filter": null
+      }
+    ],
+    "canvasState": null,
+    "notificationSettings": null
+  },
+  "connectionReferences": []
+}

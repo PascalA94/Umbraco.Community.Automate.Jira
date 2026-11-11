@@ -44,15 +44,27 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Umbraco.JsonSchema.Extensions" Version="0.4.3" />
+    <!-- Bans SequenceEqual so secrets are compared only with CryptographicOperations.FixedTimeEquals (plan P5). -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
   <!-- Test stack: HQ's pins at 5318996. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="Moq" Version="4.20.72" />
+    <!-- FakeTimeProvider for the webhook replay window (Task 16). -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <!-- ADF to Markdown, used only as an independent test oracle for the Markdown converter (design 7.5). -->
     <PackageVersion Include="Meziantou.Framework.AtlassianDataFormat" Version="1.0.2" />
+  </ItemGroup>
+
+  <!-- Integration tests (Task 17a): Umbraco's own NUnit harness with a real InternalIndex and IContentService.
+       It needs NUnit and Microsoft.NET.Test.Sdk 18.10.1 (VersionOverride in that project), spike Task 2 step 3a. -->
+  <ItemGroup>
+    <PackageVersion Include="Umbraco.Cms.Tests.Integration" Version="$(UmbracoCmsVersionSpec)" />
+    <PackageVersion Include="NUnit" Version="3.14.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="5.2.0" />
   </ItemGroup>
 </Project>

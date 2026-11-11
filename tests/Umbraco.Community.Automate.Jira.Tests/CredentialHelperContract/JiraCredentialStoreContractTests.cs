@@ -40,6 +40,8 @@ public sealed class JiraCredentialStoreContractTests : CredentialStoreContractTe
     {
         ["Umbraco.Community.Automate.Jira.Credentials.JiraCredentialSourceCheck"] =
             "Builds the key to find which provider holds it, only after TryGet succeeded for the same name and part; the value is discarded and only a file name is returned.",
+        ["Umbraco.Community.Automate.Jira.Webhooks.JiraSignatureWebhookAuthenticator"] =
+            "Names the key in the 'secret shorter than 32 characters' warning, only after TryGet succeeded for the same name; the key goes into a log message and is never used to read configuration.",
     };
 
     internal override ICredentialStore<JiraCredentialPart> CreateStore(IConfiguration configuration, IOptionsMonitor<AutomateOptions> options, IOptions<AutomateOptions> startupOptions) =>

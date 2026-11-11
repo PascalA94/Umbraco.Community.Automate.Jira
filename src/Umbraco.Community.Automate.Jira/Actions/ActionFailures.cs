@@ -51,6 +51,6 @@ internal static class ActionFailures
         return true;
     }
 
-    private static ActionResult Configuration(string message) =>
+    public static ActionResult Configuration(string message) =>
         ActionResult.Failed(new JiraRequestException(message, StepRunErrorCategory.ConfigurationError), StepRunErrorCategory.ConfigurationError);
 }
