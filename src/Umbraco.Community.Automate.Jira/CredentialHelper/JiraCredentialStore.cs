@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.0
+// credential-helper-contract: 1.0.1
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;

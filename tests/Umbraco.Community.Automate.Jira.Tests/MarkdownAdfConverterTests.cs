@@ -47,9 +47,13 @@ public class MarkdownAdfConverterTests
 
         var doc = Convert(markdown).Document!;
 
-        var goldenPath = Path.Combine(SourceFixtures(), name + ".golden.json");
+        // Goldens are read from the output folder: CI builds with ContinuousIntegrationBuild, which maps
+        // [CallerFilePath] to "/_/…", so the source path only exists on a developer machine. Rewriting them
+        // (JIRA_UPDATE_GOLDENS=1, local only) writes the source copy and reads it back.
+        var goldenPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "adf", name + ".golden.json");
         if (UpdateGoldens)
         {
+            goldenPath = Path.Combine(SourceFixtures(), name + ".golden.json");
             File.WriteAllText(goldenPath, doc.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
         }
 

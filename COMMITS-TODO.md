@@ -465,7 +465,7 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
   - Task 22 step 8 greps `docs/runbook.md`. The runbook is now `RUNBOOK.md` at the root, so grep that instead.
 - **Resume:** run the milestone commit below, do the blocking items, then start a fresh session and say "continue".
 
-## Milestone commit (M4)
+## Milestone commit (M4) (done: a04353b)
 
 1. Check nothing unwanted is pending. Use `-uall`, so files inside new folders are listed. There should be no `.db`, `umbraco/Data`, index, `bin/`, `obj/`, `.superpowers/`, `appsettings.Local.json`, review or transcript files:
 
@@ -485,3 +485,36 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
    ```
 
 3. Check: `git log -1 --stat --oneline | head -5`
+
+## Decisions recorded (2026-11-11, between M4 and M5)
+
+- **SEC-M3-4:** accepted as a residual for the beta. Check it again before GA. Recorded in `docs/design.md` ("Resolved by Pascal (2026-11-11, after M4)"); the README already lists it.
+- **SEC-M4-7:** Pascal only. `RUNBOOK.md` no longer has `[[SECOND-PERSON]]`, so the Task 22 step 8 grep passes on it.
+- **Cloud secret names:** Cloud accepted `Umbraco__Automate__Jira__Credentials__test__ApiToken` (Pascal, 2026-11-11). No key change. Pascal ruled that a saved secret is readable and resolves per environment (Cloud passes secrets as per-environment environment variables; spike step 5 covers the read). Task 22 step 6 re-checks it. Deploy: settled from the Automate docs (Pascal asked for them): `Umbraco.Deploy.Automate` moves connections and automations, and the Jira connection settings hold no secret. Recorded in `docs/spikes.md` (Task 20a record) and the README. Task 22 step 6 runs it end to end. Recorded in `docs/spikes.md` (Step 6 update) and the README Cloud note.
+- **Files changed:** `docs/design.md` (and the workspace copy), `docs/spikes.md`, `README.md`, `RUNBOOK.md`, this file. They go in with the M5 milestone commit.
+- **Next task:** Task 21. Task 20a is recorded with no UNKNOWN (Cloud name accepted; read and per-environment by Pascal's ruling; Deploy from the docs). Task 21 still waits on the GitHub and nuget.org settings, the first CI run and the live contract tests.
+
+## GitHub settings (2026-11-11, done by the agent at Pascal's request)
+
+- Repo made **public** (Pascal asked). Before that: gitleaks over all 4 commits found no leaks. The working-tree findings were all in git-ignored files.
+- Secret scanning and push protection: on. CodeQL default setup: off (`not-configured`), so `codeql.yml` is the only CodeQL setup.
+- Environment `nuget`: Pascal is the required reviewer, deployments limited to `v*` tags. Environment `jira-sandbox`: Pascal is the required reviewer, deployments limited to `main` and `release/*`.
+- Tag ruleset "release tags": only repository admins can create, update or delete `v*` tags.
+- **Not done yet:**
+  - The environment secrets. Pascal sets them.
+  - The `main` branch ruleset. Creating it before the first push would block pushing `main`, so it comes after the first CI run, with the required check names copied from that run.
+- NuGet trusted publishing policy: done by Pascal.
+
+## Checkpoint: first CI run fixes and credential-helper-contract 1.0.1 (record)
+
+- **First CI run (push of `main`, 2026-11-11):** lines, gitleaks, `osv-scanner / osv-scan`, docs-guard and CodeQL passed. All four `build-test` legs failed:
+  - Golden ADF tests read fixtures via `[CallerFilePath]`, which `ContinuousIntegrationBuild` maps to `/_/`. They now read from the output folder.
+  - The latest legs floated to Automate 17.6.0 and 18.6.0, which no longer echo the value in the conversion error, so I05 failed. The oracle now checks the message shape. I01 gained a typeof(int) refusal check. This is contract **1.0.1**, a test-only patch, hash `84ec091a…12e2`. The contract doc in the workspace is updated and marked Frozen.
+- **Reviews:**
+  - qa-reviewer: pass with 3 minor findings. F1 (the key-only check was too weak) is fixed; F2 is the doc; F3 needs no change.
+  - security-analyst: approved with conditions, **not a control relaxation** (no ADR). F1 (check the message shape) and F2 (I01 typeof(int)) are fixed, and the hash was recomputed.
+- **Tests:** `./scripts/test.sh` floor 17 and 18: 929/929 unit and 11/11 integration each. Latest 17.6.0 and 18.6.0 with `GITHUB_ACTIONS=true`: 929/929 and 11/11 each.
+- **Message (record only):** `test: fix CI path mapping for ADF goldens; credential-helper-contract 1.0.1 for Automate 17.6 and 18.6`
+- **After you commit and push:** tag `credential-helper-1.0.1` (`git tag credential-helper-1.0.1 && git push origin credential-helper-1.0.1`). Tell the Teams and Deploy hooks owners to re-copy all three files.
+- **New blocker for Task 21 (security-analyst, escalated):** re-run Task 0 step 7 (the council test 10 surfaces) on Automate 17.6.0 and 18.6.0 before the beta tag. See `docs/spikes.md`, "Automate 17.6.0 and 18.6.0".
+- **Still to do:** the `main` branch ruleset, once a green run shows the check names.

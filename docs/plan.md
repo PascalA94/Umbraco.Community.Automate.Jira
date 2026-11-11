@@ -834,6 +834,6 @@ This supersedes every "private until HQ responds / disclosure" instruction above
 - **The repo goes public at scaffold (Task 1),** like the other packages, with CodeQL, a branch ruleset, gitleaks and the vulnerable-package check. Semgrep isn't needed.
 - **Why:** the Automate secret-scoping behaviour is HQ's documented design (PR #71), so describing it isn't disclosure.
 - **The isolation spike and the package-owned credentials stay exactly as planned.** They're still the right control.
-- **The helper copy** comes from the public Jira repo at tag `credential-helper-1.0.0`.
+- **The helper copy** comes from the public Jira repo at the newest `credential-helper-*` tag (1.0.1 from 2026-11-11).
 - **The core-gap evidence file** can stay in the private workspace. It's not needed in the repo.
 - **Announcements and HQ posts** no longer wait for "public". Post them when the plan says.

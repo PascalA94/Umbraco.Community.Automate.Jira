@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.0
+// credential-helper-contract: 1.0.1
 using System.CodeDom.Compiler;
 using System.Globalization;
 using System.Reflection;
@@ -25,10 +25,10 @@ namespace CredentialHelperContract;
 public abstract class CredentialStoreContractTests<TPart>
     where TPart : struct, Enum
 {
-    public const string ContractVersion = "1.0.0";
+    public const string ContractVersion = "1.0.1";
 
     // The canonical hash of the store source and both suites. Never change it locally: re-copy the canonical files instead.
-    public const string CanonicalHash = "39aebb90bfaa7d21e56711a62910483467639d58f7a5b1c38b1019804a71cdba";
+    public const string CanonicalHash = "84ec091ad1cce3ad9cb6be9d8f480aaa7f533cc1f4594b34ec9f7a79d0c212e2";
 
     private const string NameError = "Credential name must be 1 to 32 letters or digits.";
     private const string UnknownPartError = "Unknown credential part.";

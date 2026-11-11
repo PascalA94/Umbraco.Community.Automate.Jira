@@ -75,9 +75,16 @@ The connection and the webhook authenticator store only the name (`agency`, `age
 | `dotnet user-secrets` (local development) | `dotnet user-secrets set "Umbraco:Automate:Jira:Credentials:agency:ApiToken" "<token>"` |
 | Umbraco Cloud secrets | `Umbraco__Automate__Jira__Credentials__agency__ApiToken` (see the note below) |
 
-**Umbraco Cloud note (unverified).** Umbraco Cloud's [Secrets Management](https://docs.umbraco.com/umbraco-cloud/set-up/project-settings/secrets-management) page (read 2026-11-11) joins setting names with double underscores, as above, but also lists `UMBRACO_` as a restricted prefix and gives a list of allowed `Umbraco__…` prefixes that does not include `Umbraco__Automate__`. Whether Cloud accepts these keys has not been tested yet. If Cloud refuses them, ask Umbraco Support to allow the `Umbraco__Automate__Jira__Credentials__` prefix, as that page suggests for conflicts. This section will be updated once it is checked on a Cloud project.
+**Umbraco Cloud note.** Umbraco Cloud's [Secrets Management](https://docs.umbraco.com/umbraco-cloud/set-up/project-settings/secrets-management) page joins setting names with double underscores, as above. Cloud accepted a secret named `Umbraco__Automate__Jira__Credentials__{name}__ApiToken` when this was checked on 2026-11-11, although that page lists `UMBRACO_` as a restricted prefix. Cloud passes secrets to the site as environment variables, set per environment, so each environment reads its own value after a restart. If Cloud refuses the name on your project, ask Umbraco Support to allow the `Umbraco__Automate__Jira__Credentials__` prefix, as that page suggests for conflicts.
 - **Do not work round a refusal by putting the token in `appsettings*.json`.** Cloud deploys from git, so the value would stay in the repository history (Validate warns about this).
 - Use **environment** secrets, not **shared** secrets: shared secrets reach every environment, so development would hold the live token. Give each environment its own service account and token.
+
+**Moving connections and automations with Umbraco Deploy.** Deploy moves Automate connections, automations and workspaces through Umbraco's [Umbraco.Deploy.Automate](https://docs.umbraco.com/umbraco-automate/add-ons/deploy) add-on.
+- Install that add-on and this package on every environment. If this package is missing on the target, the import fails and names it.
+- A Jira connection's settings (site URL, credential name, Cloud ID) hold no secret, so they transfer as they are. Each environment then reads its own token from its own secrets under the same credential name. Set the same credential names on every environment, with different values.
+- A webhook automation keeps its credential name. Set `…__{name}__WebhookSecret` on each environment, and give each environment's Jira webhook its own URL and secret.
+- Without Deploy, use Automate's export and import. The same rules apply.
+- This follows Umbraco's Deploy add-on documentation (read 2026-11-11). It has not yet been run end to end on a Cloud project.
 
 **Rotation.** The package reads the credential on every request and never caches it.
 - A JSON file with `reloadOnChange` (such as `appsettings.Development.json`) and a reloading Key Vault provider are picked up on the next run, without a restart.

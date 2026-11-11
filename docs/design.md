@@ -643,7 +643,7 @@ Baseline for this section: Automate behaviour is [HIGH - source code, `umbraco/U
   } } } }
   ```
 - **Why it isolates.** Automate's resolver only substitutes `$` references whose key is under `AllowedConfigurationKeyPrefixes` (defaults `Umbraco:Automate:Secrets` and `Umbraco:Automate:Variables`); a whole-value reference outside the list throws "not permitted" and an embedded one is left literal. Matching is segment-aware and case-insensitive. In core, only this resolver reads arbitrary config keys on behalf of steps. So the HTTP Request action cannot pull our credential into a header or URL. Spike S7 proves it on both lines before anything else is built.
-- **`JiraCredentialStore`** (internal, singleton, about 40 lines; council condition 1). It implements `../credential-helper-contract.md` 1.0.0, which is canonical for Jira and Teams and fixes the API, name rule, guard, startup check, error texts and a shared conformance suite with a divergence hash (Pascal, 2026-10-30; plan review P13). Summary:
+- **`JiraCredentialStore`** (internal, singleton, about 40 lines; council condition 1). It implements `../credential-helper-contract.md` 1.0.1, which is canonical for Jira and Teams and fixes the API, name rule, guard, startup check, error texts and a shared conformance suite with a divergence hash (Pascal, 2026-10-30; plan review P13). Summary:
   - `const string Prefix = "Umbraco:Automate:Jira:Credentials"`.
   - `bool TryGet(string? name, JiraCredentialPart part, out string? value, out string? error)`, where `JiraCredentialPart` is `Email`, `ApiToken` or `WebhookSecret`.
   - Name: trimmed, ASCII only, lower-cased, then `^[a-z0-9]{1,32}\z` (`\z`, never `$`). Errors never echo the name. That rejects `..`, `:`, `__`, `-`, spaces and empty names, and works unchanged as an environment variable segment and a Key Vault secret name segment (council test 3).
@@ -968,6 +968,11 @@ This supersedes every "private until HQ responds / disclosure" instruction above
 - **The repo goes public at scaffold (Task 1),** like the other packages, with CodeQL, a branch ruleset, gitleaks and the vulnerable-package check. Semgrep isn't needed.
 - **Why:** the Automate secret-scoping behaviour is HQ's documented design (PR #71), so describing it isn't disclosure.
 - **The isolation spike and the package-owned credentials stay exactly as planned.** They're still the right control.
-- **The helper copy** comes from the public Jira repo at tag `credential-helper-1.0.0`.
+- **The helper copy** comes from the public Jira repo at the newest `credential-helper-*` tag (1.0.1 from 2026-11-11).
 - **The core-gap evidence file** can stay in the private workspace. It's not needed in the repo.
 - **Announcements and HQ posts** no longer wait for "public". Post them when the plan says.
+
+## Resolved by Pascal (2026-11-11, after M4)
+
+- **SEC-M3-4 accepted for the beta.** A save that lands between the step 8 `UpdateDate` re-check and the Publish Content step (6.8) is published without a second review. The README lists it as a residual. Check it again before GA. A guarded publish step (re-check and publish in one scope) would be a design change, so it is not planned for 1.0.
+- **SEC-M4-7: Pascal is the only person who can rotate credentials** for now. `RUNBOOK.md` says so and names the risk: while Pascal is unavailable, nobody can rotate. Name a second person when there is one.

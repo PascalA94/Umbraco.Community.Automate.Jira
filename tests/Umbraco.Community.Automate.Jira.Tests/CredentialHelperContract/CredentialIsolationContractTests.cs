@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.0
+// credential-helper-contract: 1.0.1
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
@@ -114,6 +114,12 @@ public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper 
                 Assert.Contains("not permitted", exception.Message);
                 Assert.DoesNotContain(package, exception.ToString());
             }
+
+            // A non-string target must be refused before conversion: on 17.5.1 and 18.5.1 the conversion error echoes
+            // the value, so if Automate ever converted before checking the allow-list, this is where it would leak.
+            var converted = Assert.ThrowsAny<Exception>(() => host.Resolver.Resolve("$" + PackageKey(part), typeof(int), true));
+            Assert.Contains("not permitted", converted.Message);
+            Assert.DoesNotContain(package, converted.ToString());
 
             foreach (var (shape, url, header) in Shapes("$" + PackageKey(part)).Where(s => s.Shape.StartsWith("whole", StringComparison.Ordinal)))
             {
@@ -251,8 +257,19 @@ public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper 
         // Core's type conversion echoes a value it cannot convert. A step's settings never reach it with a string
         // for a non-string field (the settings are deserialised before references are resolved), so this is shown
         // on the resolver directly: it is the channel a future settings shape would open.
+        // Automate 17.5.1 and 18.5.1 echo the value in this error ("Cannot convert configuration value '<value>' ...");
+        // 17.6.0 and 18.6.0 name only the key ("... value for '<key>' ..."). Either is accepted, but it must be the
+        // conversion error: the not-permitted refusal also names the key, so the message shape is checked, not the key
+        // alone or the exception type (SettingsResolutionException is new in 17.6.0 and 18.6.0 and is also the refusal's
+        // type there). The run output records which behaviour this Automate has.
         var conversion = Assert.ThrowsAny<Exception>(() => host.Resolver.Resolve("$" + PackageKey(SamplePart), typeof(int), true));
-        Assert.Contains(package, conversion.ToString());
+        var conversionEchoes = conversion.ToString().Contains(package, StringComparison.Ordinal);
+        output.WriteLine($"type conversion: {conversion.GetType().Name}, echoes the value: {conversionEchoes}");
+        Assert.DoesNotContain("not permitted", conversion.Message);
+        Assert.Contains("Cannot convert configuration value", conversion.Message);
+        Assert.True(
+            conversionEchoes || conversion.Message.Contains($"for '{PackageKey(SamplePart)}'", StringComparison.Ordinal),
+            $"type conversion: the error names neither the value nor the key: {conversion.GetType().Name}");
 
         var store = CreateStore(host.Configuration, new TestOptionsMonitor<AutomateOptions>(widened), Options.Create(widened));
         Assert.False(store.TryGet("acme", SamplePart, out var value, out var storeError));

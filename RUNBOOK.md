@@ -2,7 +2,7 @@
 
 Operational steps for sites using the Jira connector for Umbraco Automate. "The credential" means the values under `Umbraco:Automate:Jira:Credentials:{name}`.
 
-**Who can rotate:** Pascal Meyer, and [[SECOND-PERSON]].
+**Who can rotate:** Pascal Meyer only. While Pascal is unavailable, nobody can rotate a credential, so name a second person here as soon as there is one.
 
 ## Rotate the API token
 
