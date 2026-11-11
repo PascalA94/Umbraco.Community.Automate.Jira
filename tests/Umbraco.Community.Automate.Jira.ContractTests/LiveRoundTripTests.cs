@@ -144,6 +144,19 @@ internal sealed class LiveJira
 
 public class LiveRoundTripTests(ITestOutputHelper output)
 {
+    // A failed live call must say why, or a misconfigured jira-sandbox environment is indistinguishable from a
+    // regression. ErrorCategory and the exception message (not its stack or inner exceptions) are safe to print: the package passes Jira text through SafeText and
+    // SecretLeakTests prove neither carries the token, email or webhook secret.
+    private void AssertSuccess(ActionResult result, string step)
+    {
+        if (result.Status != ActionResultStatus.Success)
+        {
+            output.WriteLine($"{step}: {result.Status}, {result.ErrorCategory}: {result.Exception?.Message}");
+        }
+
+        Assert.True(result.Status == ActionResultStatus.Success, $"{step}: {result.Status}, {result.ErrorCategory}: {result.Exception?.Message}");
+    }
+
     [ContractFact]
     public async Task CreateCommentTransitionDelete()
     {
@@ -151,7 +164,7 @@ public class LiveRoundTripTests(ITestOutputHelper output)
         var created = await jira.RunAsync(
             new CreateIssueAction(jira.Infrastructure, jira.Scopes),
             new CreateIssueSettings { ProjectKey = jira.Project, IssueType = "Task", Summary = $"Contract test {DateTimeOffset.UtcNow:O}", Description = "Created by the package's live contract test." });
-        Assert.Equal(ActionResultStatus.Success, created.Status);
+        AssertSuccess(created, "created");
         var issue = Assert.IsType<CreateIssueOutput>(created.OutputData);
 
         try
@@ -161,7 +174,7 @@ public class LiveRoundTripTests(ITestOutputHelper output)
             var comment = await jira.RunAsync(
                 new AddCommentAction(jira.Infrastructure, jira.Scopes),
                 new AddCommentSettings { IssueKey = issue.IssueKey, Body = "Contract test comment" });
-            Assert.Equal(ActionResultStatus.Success, comment.Status);
+            AssertSuccess(comment, "comment");
 
             using var scope = jira.Provider.CreateScope();
             var client = scope.ServiceProvider.GetRequiredService<Client.IJiraClient>();
@@ -171,7 +184,7 @@ public class LiveRoundTripTests(ITestOutputHelper output)
             var moved = await jira.RunAsync(
                 new TransitionIssueAction(jira.Infrastructure, jira.Scopes),
                 new TransitionIssueSettings { IssueKey = issue.IssueKey, Transition = first.Id });
-            Assert.Equal(ActionResultStatus.Success, moved.Status);
+            AssertSuccess(moved, "moved");
             Assert.Equal(first.ToStatusName.Trim(), (await client.GetIssueStatusAsync(jira.Target(), issue.IssueKey, CancellationToken.None)).Trim(), ignoreCase: true);
         }
         finally
@@ -193,7 +206,7 @@ public class LiveRoundTripTests(ITestOutputHelper output)
         };
 
         var first = await jira.RunAsync(new CreateIssueAction(jira.Infrastructure, jira.Scopes), settings);
-        Assert.Equal(ActionResultStatus.Success, first.Status);
+        AssertSuccess(first, "first");
         var issue = Assert.IsType<CreateIssueOutput>(first.OutputData);
 
         try
@@ -213,7 +226,7 @@ public class LiveRoundTripTests(ITestOutputHelper output)
             output.WriteLine($"Dedupe search lag: {lag.Elapsed.TotalSeconds:0.0} s");
 
             var second = await jira.RunAsync(new CreateIssueAction(jira.Infrastructure, jira.Scopes), settings);
-            Assert.Equal(ActionResultStatus.Success, second.Status);
+            AssertSuccess(second, "second");
             var again = Assert.IsType<CreateIssueOutput>(second.OutputData);
             Assert.True(again.WasExisting);
             Assert.Equal(issue.IssueKey, again.IssueKey);
