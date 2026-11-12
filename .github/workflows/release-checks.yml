@@ -69,9 +69,13 @@ jobs:
           JIRA_CONTRACT_CLOUDID: ${{ secrets.JIRA_CONTRACT_CLOUDID }}
         run: |
           set -euo pipefail
+          # The console summary's format changes with the logger verbosity, so the pass count is read from the TRX
+          # file. A skipped test is not executed, so total = executed = passed = 2 also proves nothing skipped.
+          # Detailed verbosity prints each test's output (the dedupe search lag, or why a step failed).
           dotnet test tests/Umbraco.Community.Automate.Jira.ContractTests --no-restore -p:AutomateMajor="$LINE" \
-            --logger "console;verbosity=normal" | tee "$RUNNER_TEMP/contract.log"
-          grep -qE 'Passed!.*Failed: +0, Passed: +2, Skipped: +0' "$RUNNER_TEMP/contract.log" \
+            --logger "console;verbosity=detailed" --logger "trx;LogFileName=contract.trx" \
+            --results-directory "$RUNNER_TEMP/contract"
+          grep -qE '<Counters total="2" executed="2" passed="2" failed="0"' "$RUNNER_TEMP/contract/contract.trx" \
             || { echo "Expected 2 passed and 0 skipped; set the jira-sandbox environment secrets." >&2; exit 1; }
 
   integration-sqlserver:

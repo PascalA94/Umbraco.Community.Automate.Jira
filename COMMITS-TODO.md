@@ -538,6 +538,14 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - Fix in the tests: `LiveRoundTripTests` now prints the failure category and the exception message (not the stack) for any step that does not succeed. Both lines build. Because `main` now requires a PR, this goes in on a branch.
 - **Message (record only):** `test: print the reason when a live contract step fails`
 
+## release-checks, runs 2 and 3 (2026-11-12, record)
+
+- Run 2: the new failure output showed `Authentication: Jira rejected the credentials (401)` on both lines. Pascal created a new scoped token (`read:jira-work`, `write:jira-work`, `read:jira-user`) and replaced `JIRA_CONTRACT_TOKEN`.
+- Run 3 (`43124702772`): **both live contract tests passed on 17 and 18** (`Passed: 2` each: create, comment, transition and delete on SBX, plus live dedupe). Integration on SQL Server passed on both lines.
+  - This also settles spike S3's open item: Create, Comment, Transition and the dedupe search all work with a token holding exactly those three scopes. Validate (`/myself`) is still checked with the local SBX session.
+  - The job still reported failure because the workflow's pass check looked for the one-line `Passed!` summary, which `verbosity=normal` does not print. The check now reads the TRX counters (`total = executed = passed = 2`, so a skipped run fails), and the console uses detailed verbosity so the dedupe search lag is printed. Verified locally (a skipped run is rejected; the pattern matches a two-pass file) and with actionlint.
+- **Message (record only):** `ci: read the contract test count from TRX and print test output`
+
 ## Paused here (2026-11-11, before M5)
 
 - **Why:** this session only cleared the items blocking M5. M5 has not started.
@@ -553,7 +561,7 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
   - Task 20a is recorded with no UNKNOWN.
   - The GitHub settings are all done: public repo, secret scanning and push protection, CodeQL through the workflow, the `nuget` and `jira-sandbox` environments with their secrets, the tag ruleset and the `main` ruleset.
 - **Your to-dos before the next session:**
-  - Run `release-checks` by hand (Actions → release-checks → Run workflow, then approve the `jira-sandbox` deployment). Expected: the contract tests `Passed: 2`.
+  - Merge the release-checks fix PR, then run `release-checks` once more and approve it. Expected: green, with the dedupe search lag printed.
   - Export `JIRA_CONTRACT_*` and `Umbraco__Automate__Jira__Credentials__sandbox__Email|ApiToken` (plus `JIRA_SANDBOX_SITE=https://pascal-sandbox.atlassian.net`) in the terminal you start `claude` from.
 - **Only change since `719477e`:** this file. It goes in with the M5 milestone commit, through a PR, because `main` now requires one.
 - **Resume:** start a fresh session and say "continue".
