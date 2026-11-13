@@ -222,7 +222,7 @@ Jira webhooks start an automation through Automate's built-in **Webhook** trigge
 
 1. In the automation, add a Webhook trigger and choose the Jira webhook secret authenticator. Set its credential name, for example `agencywh`.
 2. Set `Umbraco:Automate:Jira:Credentials:agencywh:WebhookSecret` to 32 or more random characters.
-3. In Jira (Settings → System → WebHooks), create a webhook to `https://<your site>/automate/webhook/<automation ID>` with the same secret, a JQL filter scoped to one project, and only the events you need.
+3. In Jira (Settings → System → WebHooks), create a webhook to `https://<your site>/automate/webhook/<automation ID>` with the same secret, a JQL filter scoped to one project, and only the events you need. Copy the full **Webhook URL** shown on the trigger: a URL without the `/automate/webhook/<automation ID>` path posts to the site's home page, and neither Jira nor Umbraco reports an error.
 
 What the authenticator checks:
 - exactly one `X-Hub-Signature: sha256=<hex>` header, compared in fixed time;

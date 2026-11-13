@@ -475,6 +475,13 @@ The worst observed lag (0.36 s) is far below Automate's first retry delay (30 s,
   - the `timestamp` unit (epoch milliseconds per Atlassian's examples; unverified);
   - whether a retry's body is byte-identical;
   - whether comment bodies arrive as a string or as ADF (the parser must accept both).
+- **Live capture (2026-11-13, `18.0.0-beta.1` on the demo site through a temporary Cloudflare quick tunnel, Jira Cloud sandbox webhook with a 64-character secret, JQL `project = SBX`, events issue updated and comment created):**
+  - Both real deliveries passed `community.jira.signature` and ran **Read Jira webhook event** to Completed: `jira:issue_updated` (SBX-34, `statusChangedFrom` "In Review", `statusChangedTo` "Ready to publish") and `comment_created` (`commentBody` "Another comment").
+  - **`timestamp` unit: epoch milliseconds** (13 digits, for example `1794613018601`), accepted by the replay window. Resolved.
+  - **Comment bodies arrive as a plain string** on `comment_created`. Resolved; the parser still accepts ADF.
+  - **Byte-identical retries: still UNKNOWN.** Jira cannot be made to retry on demand.
+  - No trace of the secret (whole or a 24-character slice) in the logs, a database dump or the raw database files; no `X-Hub-Signature` header and no `sha256=` value stored.
+  - A setup slip worth a README line: a webhook URL saved without the `/automate/webhook/{id}` path posts to the site root and fails silently on both sides.
 - **Effect on Task 16:** `Validate_CapturedJiraDelivery_Passes` runs on the self-signed fixture, which is **not** the non-circular proof the plan wants. The live tunnel test is Pascal's to-do.
 - **Fixture scanner:** `FixtureScannerTests` passes, and its two self-tests prove it flags unlisted emails, account IDs and display names. The manual mutation (a real-looking email in a scratch fixture) failed naming only `webhooks/scratch.json:2 email`, then passed once removed. gitleaks finds nothing in `Fixtures/` or `scripts/`.
 
