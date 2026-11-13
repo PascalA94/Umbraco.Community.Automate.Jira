@@ -27,8 +27,8 @@ The Jira webhook and the site must change together. Deliveries between the two c
 2. Check the Jira audit log for actions by the service account since the suspected time.
 3. In Automate, check recent runs and automations for **HTTP Request** steps, especially any that reference `$Umbraco:Automate:Jira:Credentials` or send data to unknown hosts.
 4. Check `Umbraco:Automate:AllowedConfigurationKeyPrefixes` in every environment (see below).
-5. Export the affected Automate runs and the Jira audit log to restricted storage. They are the evidence for the investigation and for any personal data breach assessment.
-6. Then delete the run records from the exposure window that hold resolved credential values.
+5. Export the affected Automate runs, the Umbraco logs from the exposure window (`umbraco/Logs` and any log sink they are shipped to) and the Jira audit log to restricted storage. They are the evidence for the investigation and for any personal data breach assessment.
+6. Then delete the run records and log entries from the exposure window that hold resolved credential values.
 
 ## The allow-list guard tripped
 
@@ -36,7 +36,7 @@ Symptom: a `Critical` log at startup, and steps failing with an error naming an 
 
 1. Remove the named entry (`Umbraco`, `Umbraco:Automate`, `Umbraco:Automate:Jira`, an empty or wildcard entry, or anything under `Umbraco:Automate:Jira:Credentials`).
 2. Restart the site. Automate reads the allow-list once at startup.
-3. Treat the credential as exposed for the time the entry was present: rotate it, export the runs from that window to restricted storage, then delete the run records that hold resolved values.
+3. Treat the credential as exposed for the time the entry was present: rotate it, export the runs and Umbraco logs from that window to restricted storage, then delete the run records and log entries that hold resolved values.
 
 ## Upgrading Automate
 

@@ -101,7 +101,7 @@ The connection and the webhook authenticator store only the name (`agency`, `age
 4. Credential names are site-wide, not per workspace. An author in any workspace can name any configured credential.
 5. Other server-side code (custom code, other packages, anything that reads `IConfiguration`) can still read the section. Protect it like any other server secret.
 
-**Do not widen `AllowedConfigurationKeyPrefixes`** to `Umbraco`, `Umbraco:Automate`, `Umbraco:Automate:Jira` or anything under `Umbraco:Automate:Jira:Credentials`. If it is widened, every automation author can send the credential to any host. The package detects this: it refuses its own credential reads and logs a `Critical` message at startup. It cannot stop other steps. After any such exposure, rotate the credentials and delete the run records from that time, because resolved values stay in stored runs. Automate reads the allow-list once at startup, so a change needs a restart.
+**Do not widen `AllowedConfigurationKeyPrefixes`** to `Umbraco`, `Umbraco:Automate`, `Umbraco:Automate:Jira` or anything under `Umbraco:Automate:Jira:Credentials`. If it is widened, every automation author can send the credential to any host. The package detects this: it refuses its own credential reads and logs a `Critical` message at startup. It cannot stop other steps. After any such exposure, rotate the credentials and delete the run records and log entries from that time, because resolved values stay in stored runs and in Umbraco's logs (the log files and anywhere they are shipped). Automate reads the allow-list once at startup, so a change needs a restart.
 
 ## Service account requirements
 

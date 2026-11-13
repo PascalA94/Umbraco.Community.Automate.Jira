@@ -571,3 +571,12 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - Publish run 43460855765: build green. It packed `17.0.0-beta.1` (Automate `[17.5.1, 18.0.0)`, CMS `[17.8.0, 18.0.0)`) and `18.0.0-beta.1` (Automate `[18.5.1, 19.0.0)`, CMS `[18.3.0, 19.0.0)`), titled "Umbraco Automate connector for Jira". At the time of writing, the publish job was waiting for Pascal's approval on the `nuget` environment.
 - **Next:** (1) approve the `nuget` deployment, then confirm both versions are listed on nuget.org (Task 21 step 4); (2) dismiss CodeQL alert #6 (a re-flag of #5 on the local-only spike controller); (3) Task 22 dogfood and GA. Pascal-owned items are unchanged: the live Jira webhook capture, Validate in a local SBX session, the `[[SECOND-PERSON]]` runbook placeholder, SEC-M3-4.
 - **Local SDK note:** .NET 10.0.404 now lives in `~/.dotnet`, not on the default PATH. Set `DOTNET_ROOT=$HOME/.dotnet` and put `$HOME/.dotnet` first on PATH.
+
+## M6 pre-GA work in progress (2026-11-13, branch `m6/pre-ga-residuals`, uncommitted)
+
+- Task 21 step 4 ticked: `17.0.0-beta.1` and `18.0.0-beta.1` listed on nuget.org at 16:47 UTC.
+- credential-helper-contract **1.0.2** (test-only; the `JiraCredentialStore.cs` header line changes because C18 needs it): I07 is an IL member-reference pin with 37 `(type, access)` pins, bound-type catch-all check, stale-pin check, environment and `BindConfiguration` reads, `ldtoken` via `ResolveMember`; I05b and I05c cover float, Guid, DateTime, enum and TimeSpan. Hash `4067bab2cc1fd0eb86d2f6bb717869bc44af0dae0cc7a095c206a740bd4d78cd`. security-analyst approved (Low 2 left as is). Update the contract doc in the workspace to 1.0.2 with this hash.
+- README line 104 and `RUNBOOK.md`: after a widened allow-list, delete log entries as well as run records (security-analyst).
+- `spikes/` builds in place again (`spikes/Directory.Packages.props`, `spikes/.gitignore` for lock files). Probe17 and Probe18 carry NU1903 (not shipped).
+- Demo on the NuGet beta: `-p:JiraPackageSource=nuget`, `scripts/run-demo.sh <line>` (silent token prompt). Task 22 step 1 is waiting for Pascal to run it and build the form and automation.
+- Tests: 931/931 unit and 11/11 integration on both lines, floor and float.

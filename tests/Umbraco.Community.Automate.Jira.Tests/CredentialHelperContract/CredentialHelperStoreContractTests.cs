@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.1
+// credential-helper-contract: 1.0.2
 using System.CodeDom.Compiler;
 using System.Globalization;
 using System.Reflection;
@@ -25,10 +25,10 @@ namespace CredentialHelperContract;
 public abstract class CredentialStoreContractTests<TPart>
     where TPart : struct, Enum
 {
-    public const string ContractVersion = "1.0.1";
+    public const string ContractVersion = "1.0.2";
 
     // The canonical hash of the store source and both suites. Never change it locally: re-copy the canonical files instead.
-    public const string CanonicalHash = "84ec091ad1cce3ad9cb6be9d8f480aaa7f533cc1f4594b34ec9f7a79d0c212e2";
+    public const string CanonicalHash = "4067bab2cc1fd0eb86d2f6bb717869bc44af0dae0cc7a095c206a740bd4d78cd";
 
     private const string NameError = "Credential name must be 1 to 32 letters or digits.";
     private const string UnknownPartError = "Unknown credential part.";
@@ -1190,6 +1190,31 @@ internal static class IlScan
         where found.OpCode == OpCodes.Call || found.OpCode == OpCodes.Callvirt || found.OpCode == OpCodes.Newobj
             || found.OpCode == OpCodes.Ldftn || found.OpCode == OpCodes.Ldvirtftn
         select (found.Type, found.Method.Name, Resolve(found.Method, found.Operand));
+
+    /// <summary>
+    /// Every member or type a method body loads with ldtoken (typeof, and the method and field handles an expression
+    /// tree uses). A token the module cannot resolve is reported as null so a caller can fail closed.
+    /// </summary>
+    public static IEnumerable<(Type Type, string Member, MemberInfo? Token)> MemberTokens(Assembly assembly)
+    {
+        foreach (var found in Instructions(assembly).Where(f => f.OpCode == OpCodes.Ldtoken))
+        {
+            MemberInfo? token;
+            try
+            {
+                token = found.Method.Module.ResolveMember(
+                    found.Operand,
+                    found.Method.DeclaringType is { IsGenericType: true } declaring ? declaring.GetGenericArguments() : null,
+                    found.Method.IsGenericMethod ? found.Method.GetGenericArguments() : null);
+            }
+            catch (Exception ex) when (ex is ArgumentException or BadImageFormatException or TypeLoadException or FileNotFoundException)
+            {
+                token = null;
+            }
+
+            yield return (found.Type, found.Method.Name, token);
+        }
+    }
 
     private static MethodBase? Resolve(MethodBase caller, int token)
     {

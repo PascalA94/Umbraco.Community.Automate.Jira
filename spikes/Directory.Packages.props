@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Spikes are throwaway probes that pin their own versions inline. This file is the nearest
+    Directory.Packages.props for everything under spikes/, so it shadows the repo root one and
+    the root Directory.Build.props (target framework, AutomateMajor) still applies.
+    Spikes are not in the solution and not built by CI.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
