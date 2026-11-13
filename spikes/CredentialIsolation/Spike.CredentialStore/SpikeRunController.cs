@@ -46,6 +46,9 @@ public sealed class SpikeRunController(
             "pkg-url-whole" => ("umbracoAutomate.httpRequest", Http(Pkg, null)),
             "control-secrets-header" => ("umbracoAutomate.httpRequest", Http("http://localhost:5099/control", Ctl)),
             "control-secrets-url" => ("umbracoAutomate.httpRequest", Http($"http://localhost:5099/control-url?q={Ctl}", null)),
+            "pkg-log-whole" => ("umbracoAutomate.logMessage", new Dictionary<string, object?> { ["message"] = Pkg, ["logLevel"] = "Information" }),
+            "pkg-log-embedded" => ("umbracoAutomate.logMessage", new Dictionary<string, object?> { ["message"] = "x " + Pkg + " y", ["logLevel"] = "Information" }),
+            "var-log-whole" => ("umbracoAutomate.logMessage", new Dictionary<string, object?> { ["message"] = "$Umbraco:Automate:Variables:T21Var", ["logLevel"] = "Information" }),
             "read-credential" => ("spike.readCredential", new Dictionary<string, object?> { ["name"] = "spike" }),
             _ => (null, null),
         };
@@ -124,7 +127,7 @@ public sealed class SpikeRunController(
     // Gives the spike API user a client-credentials login so the surface scan (S7 step 7)
     // can call the Management API. Local throwaway user and secret.
     [HttpPost("client")]
-    public async Task<IActionResult> Client([FromForm] string secret, [FromServices] Umbraco.Cms.Core.Security.IBackOfficeUserClientCredentialsManager clients)
+    public async Task<IActionResult> Client([FromForm] string secret, [FromForm] string? clientId, [FromServices] Umbraco.Cms.Core.Security.IBackOfficeUserClientCredentialsManager clients)
     {
         if (!Allowed())
         {
@@ -137,8 +140,8 @@ public sealed class SpikeRunController(
             return Conflict("run a case first");
         }
 
-        var result = await clients.SaveAsync(api.Key, "umbraco-back-office-spike", secret);
-        return Ok(result.ToString());
+        var result = await clients.SaveAsync(api.Key, clientId ?? "umbraco-back-office-spike", secret);
+        return Ok($"success={result.Success} status={result.Result}");
     }
 
     private static Dictionary<string, object?> Http(string url, string? headerValue)

@@ -1,4 +1,4 @@
-# Jira connector for Umbraco Automate
+# Umbraco Automate connector for Jira
 
 [![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Automate.Jira?label=NuGet)](https://www.nuget.org/packages/Umbraco.Community.Automate.Jira)
 [![Downloads](https://img.shields.io/nuget/dt/Umbraco.Community.Automate.Jira?label=Downloads)](https://www.nuget.org/packages/Umbraco.Community.Automate.Jira)

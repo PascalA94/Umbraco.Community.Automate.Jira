@@ -1,6 +1,6 @@
 {
     "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
-    "Title": "Jira connector for Umbraco Automate",
+    "Title": "Umbraco Automate connector for Jira",
     "Description": "Create Jira Cloud issues, add comments and move issues from Umbraco Automate, and start automations from signed Jira webhooks. Credentials stay in configuration, never in automations.",
     "AuthorDetails": {
         "Name": "Pascal Meyer",

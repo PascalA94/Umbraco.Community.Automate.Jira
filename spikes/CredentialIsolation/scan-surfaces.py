@@ -56,12 +56,16 @@ secret = pathlib.Path(secret_file).read_text().strip()
 def fresh_token():
     # Back-office access tokens are short-lived; a long scan re-authenticates per section.
     _, body = call("POST", "/umbraco/management/api/v1/security/back-office/token", data=urllib.parse.urlencode(
-        {"grant_type": "client_credentials", "client_id": "umbraco-back-office-spike", "client_secret": secret}).encode())
+        {"grant_type": "client_credentials", "client_id": __import__("os").environ.get("SPIKE_CLIENT_ID", "umbraco-back-office-spike"), "client_secret": secret}).encode())
     return json.loads(body)["access_token"]
 
 
 token = TOKEN[0] = fresh_token()
 
+import os, collections
+EXTRA = [m for m in os.environ.get("SPIKE_EXTRA_MARKERS", "").split(",") if m]
+extra_hits = collections.defaultdict(list)
+log_entries_seen = [0, 0, 0]  # run details, step runs, log entries
 hits, calls, statuses = [], 0, {}
 skipped = set()
 seen_ids = set()
@@ -74,6 +78,9 @@ def record(label, status, text):
     seen_ids.update(GUID.findall(text.lower()))
     if sentinel in text:
         hits.append(label)
+    for m in EXTRA:
+        if m in text:
+            extra_hits[m].append(label)
 
 
 for doc in ("management", "automate-management"):
@@ -113,6 +120,14 @@ for run_id in sorted(seen_ids):
     if status != 200:
         continue
     record(f"GET runs/{{id}}", status, run_text)
+    try:
+        rj = json.loads(run_text)
+        log_entries_seen[0] += 1
+        for sr in rj.get("stepRuns", []) or []:
+            log_entries_seen[1] += 1
+            log_entries_seen[2] += len(sr.get("logEntries", []) or [])
+    except Exception:  # noqa: BLE001
+        pass
     for step_run_id in set(GUID.findall(run_text.lower())) - {run_id}:
         status, text = call("GET", f"{A}/runs/{run_id}/step-runs/{step_run_id}/data", token)
         if status == 200:
@@ -142,13 +157,22 @@ print(f"health check groups run: {len(groups)}")
 # Log viewer API plus raw log files and the SQLite database on disk.
 record("GET log-viewer/log", *call("GET", "/umbraco/management/api/v1/log-viewer/log?take=1000", token))
 disk_hits = []
+extra_disk = collections.defaultdict(list)
 for f in pathlib.Path(site_dir, "umbraco").rglob("*"):
     if f.is_file() and (f.suffix in (".json", ".txt", ".log", ".clef") or ".db" in f.name) and sentinel.encode() in f.read_bytes():
         disk_hits.append(str(f.relative_to(site_dir)))
+    if f.is_file() and (f.suffix in (".json", ".txt", ".log", ".clef") or ".db" in f.name):
+        b = f.read_bytes()
+        for m in EXTRA:
+            if m.encode() in b:
+                extra_disk[m].append(str(f.relative_to(site_dir)))
 
 import hashlib
 print(f"sentinel: length {len(sentinel)}, sha256 prefix {hashlib.sha256(sentinel.encode()).hexdigest()[:8]}")
 print(f"multi-parameter routes not swept generically (runs/step-runs/trigger-data and version-history are covered above): {len(skipped)} -> {sorted(skipped)}")
 print(f"API calls recorded: {calls}; statuses: {dict(sorted(statuses.items()))}")
 print(f"sentinel found in API responses: {len(hits)}" + (f" -> {hits}" if hits else ""))
+print(f"run details parsed: {log_entries_seen[0]}, step runs: {log_entries_seen[1]}, step-run log entries scanned (inside run detail responses): {log_entries_seen[2]}")
+for m in EXTRA:
+    print(f"extra marker (length {len(m)}): in API responses {len(extra_hits[m])} -> {sorted(set(extra_hits[m]))}; in files {len(extra_disk[m])} -> {extra_disk[m]}")
 print(f"sentinel found in files under umbraco/: {len(disk_hits)}" + (f" -> {disk_hits}" if disk_hits else ""))

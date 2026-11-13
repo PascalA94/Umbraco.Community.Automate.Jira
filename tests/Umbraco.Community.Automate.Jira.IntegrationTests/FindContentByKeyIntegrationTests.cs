@@ -21,7 +21,7 @@ namespace Umbraco.Community.Automate.Jira.IntegrationTests;
 /// each other's nodes through the action's type clause.
 /// </remarks>
 [TestFixture]
-[UmbracoTest(Database = UmbracoTestOptions.Database.NewSchemaPerFixture)]
+[UmbracoTest(Database = UmbracoTestOptions.Database.NewSchemaPerFixture, Logger = UmbracoTestOptions.Logger.Serilog)]
 public sealed class FindContentByKeyIntegrationTests : JiraContentTestBase
 {
     private readonly HashSet<Guid> _denied = [];

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <Title>Jira connector for Umbraco Automate</Title>
+    <Title>Umbraco Automate connector for Jira</Title>
     <Description>Jira Cloud for Umbraco Automate: create issues, add comments, move issues and start automations from signed Jira webhooks. Credentials stay in configuration, never in automations.</Description>
     <PackageReadmeFile>docs\README.md</PackageReadmeFile>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>

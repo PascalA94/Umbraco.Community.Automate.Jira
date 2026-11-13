@@ -546,22 +546,19 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
   - The job still reported failure because the workflow's pass check looked for the one-line `Passed!` summary, which `verbosity=normal` does not print. The check now reads the TRX counters (`total = executed = passed = 2`, so a skipped run fails), and the console uses detailed verbosity so the dedupe search lag is printed. Verified locally (a skipped run is rejected; the pattern matches a two-pass file) and with actionlint.
 - **Message (record only):** `ci: read the contract test count from TRX and print test output`
 
-## Paused here (2026-11-11, before M5)
+## Task 21 step 1 in progress (2026-11-12)
 
-- **Why:** this session only cleared the items blocking M5. M5 has not started.
-- **Next task:** Task 21 step 1, starting with Task 0 step 7 (the council test 10 surfaces) re-run on Automate 17.6.0 and 18.6.0:
-  - the spike sites on both versions, with `scan-surfaces.py`;
-  - a Swagger endpoint diff between 18.5.1 and 18.6.0;
-  - a read of both release notes.
-  - It is UNKNOWN and escalated by security-analyst, and it blocks the beta tag.
-- **Running:** nothing.
-- **State:**
-  - `main` is at `719477e` and CI is green on all legs.
-  - Contract 1.0.1 is frozen and tagged.
-  - Task 20a is recorded with no UNKNOWN.
-  - The GitHub settings are all done: public repo, secret scanning and push protection, CodeQL through the workflow, the `nuget` and `jira-sandbox` environments with their secrets, the tag ruleset and the `main` ruleset.
-- **Your to-dos before the next session:**
-  - Merge the release-checks fix PR, then run `release-checks` once more and approve it. Expected: green, with the dedupe search lag printed.
-  - Export `JIRA_CONTRACT_*` and `Umbraco__Automate__Jira__Credentials__sandbox__Email|ApiToken` (plus `JIRA_SANDBOX_SITE=https://pascal-sandbox.atlassian.net`) in the terminal you start `claude` from.
-- **Only change since `719477e`:** this file. It goes in with the M5 milestone commit, through a PR, because `main` now requires one.
+- **Done:**
+  - Task 0 step 7 re-run on Automate 17.6.0 and 18.6.0: **closed with residuals**, beta unblocked (security-analyst). Recorded in `docs/spikes.md`, "Task 0 step 7 on 17.6.0 and 18.6.0". Tools in `spikes/CredentialIsolation/t21-tools/`, evidence hashes in `t21-evidence.SHA256SUMS`.
+  - Release notes for 17.6.0 and 18.6.0 read: no allow-list or resolver change listed. There is no 17.5.2 or 18.5.2.
+  - Task 5 decision: display title "Umbraco Automate connector for Jira" (Atlassian's "X for Jira" rule). Changed `<Title>`, `<Product>`, `umbraco-marketplace.json`, both READMEs, `RUNBOOK.md` and the gitleaks sample header. Recorded in `docs/spikes.md` and `docs/plan.md`.
+  - `release-checks` green on `b0b7166` (contract `Passed: 2` on 17 and 18, dedupe lag 0.7 s).
+  - Task 21 step 1 facts re-checked: latest Automate 17.6.0 and 18.6.0; CMS 17.8.1 and 18.3.1 (2026-11-05) are inside our ranges; floors 17.8.0 and 18.3.0 hold; Deploy.Automate 17.0.5 and 18.0.5.
+  - **CI hang (blocked the beta tag):** push run 43126662112 on `b0b7166` hung on legs (17, floor) and (18, floor) in the first integration test with `SQLite Error 6: database table is locked`. Cause: Umbraco's `UnattendedUpgradeBackgroundService` runs package migrations (Automate's `AddAutomateSectionToAdminGroup`) on a background thread after `_host.Start()` returns, overlapping the first test's save on the shared-cache in-memory database. Fix: `[SetUp] WaitForUnattendedMigrations` in `JiraContentTestBase.cs` awaits the service's `ExecuteTask` (60 s bound). 20/20 local loop runs pass; `./scripts/test.sh` 929/929 and 11/11 on both lines. The CI hang itself was not reproduced locally.
+  - Hang diagnostics (security-analyst: approve with conditions, H1, M1, L1 to L3 done): `HangWatchdogAttribute.cs` (120 s, dotnet-stack dump, FailFast), `[Explicit]` `HangProbeTests.cs`, `GlobalSetUp.cs` (assembly non-parallel), Serilog file sink and overrides in `appsettings.Tests.json`, `TEMP/` in the test `.gitignore`. `build-test.yml`: hash-pinned dotnet-stack 10.0.750501, step `timeout-minutes: 15`, `--blame-hang`, `hang_probe` dispatch input, failure-only artefact upload (7 days).
+  - Task 21 step 2: `vulnerable-check.sh` clean on 17 and 18, locked floor and float (2026-11-12). Contract tests covered by green `release-checks` on `b0b7166`.
+- **Next task:** (1) Pascal commits on an M5 branch, pushes, opens the PR, then runs `build-test` by `workflow_dispatch` with `hang_probe=true` and checks for a red step, a `stacks-*.txt` artefact and Debug lines (security-analyst condition M2); (2) Pascal tags `release/0.0-beta.1`.
+- **Before-GA residuals from step 7:** listed in `docs/spikes.md` (I07 IL pin, test/replay POSTs, element actions on 18.6, raw-string conversion wording, browser check of the views, NU1008 in `spikes/`).
+- **Still open, owned by Pascal:** the live Jira webhook capture (timestamp unit, retry bodies, comment shape); Validate in a local SBX session.
+- **Uncommitted since `b0b7166`:** this file, `docs/spikes.md`, `docs/plan.md`, the title rename files, `spikes/CredentialIsolation/` (scanner, controller, `t21-tools/`, `t21-evidence.SHA256SUMS`), `.github/workflows/build-test.yml` and the integration test files listed above. They go in with the M5 milestone commit, through a PR.
 - **Resume:** start a fresh session and say "continue".

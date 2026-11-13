@@ -67,7 +67,7 @@
     <Company>Pascal Meyer</Company>
     <Authors>Pascal Meyer</Authors>
     <Copyright>Copyright (c) Pascal Meyer $([System.DateTime]::Today.ToString('yyyy'))</Copyright>
-    <Product>Jira connector for Umbraco Automate</Product>
+    <Product>Umbraco Automate connector for Jira</Product>
     <PackageProjectUrl>https://github.com/PascalA94/Umbraco.Community.Automate.Jira</PackageProjectUrl>
     <RepositoryUrl>https://github.com/PascalA94/Umbraco.Community.Automate.Jira</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

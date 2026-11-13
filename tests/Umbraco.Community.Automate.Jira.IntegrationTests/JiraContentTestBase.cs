@@ -1,4 +1,8 @@
+using System.Diagnostics;
 using Examine;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NUnit.Framework;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Infrastructure.Examine;
@@ -14,6 +18,8 @@ namespace Umbraco.Community.Automate.Jira.IntegrationTests;
 /// Real InternalIndex and IContentService (Umbraco's integration harness, SQLite), with helpers that save content
 /// and wait until the index has caught up.
 /// </summary>
+// 120 s against a normal suite of about 26 s: long enough for a slow runner, short enough to fail before the job timeout.
+[HangWatchdog(120)]
 public abstract class JiraContentTestBase : ExamineBaseTest
 {
     // The harness registers no site indexes by default; add Umbraco's real ones so the action finds "InternalIndex"
@@ -23,6 +29,63 @@ public abstract class JiraContentTestBase : ExamineBaseTest
         base.CustomTestSetup(builder);
         builder.AddExamineIndexes();
     }
+
+    /// <summary>
+    /// Holds each test until Umbraco's unattended package migrations, including Automate's, have finished.
+    /// </summary>
+    /// <remarks>
+    /// Why: the harness calls <c>_host.Start()</c> and returns while UnattendedUpgradeBackgroundService is still running
+    /// the package migration plans (Automate's AddAutomateSectionToAdminGroup) on a thread-pool thread. On a fresh database
+    /// the first test races those writes for the SQLite write lock on the shared in-memory database, and both sides sit in
+    /// Umbraco's transient-retry loop. The hang probe's stacks showed exactly that: the migration thread in
+    /// RetryPolicy.ExecuteAction under AddAutomateSectionToAdminGroup, the test thread in SqliteDistributedLock.ObtainWriteLock.
+    /// Condition: the service's own <see cref="BackgroundService.ExecuteTask"/>, which completes after the migrations, the
+    /// runtime-level change to Run and component initialisation. The service is internal, so it is found by type name.
+    /// Not usable instead: Automate's AutomateReadinessSignal (this harness does not compose Automate, so it is not
+    /// registered) and IContentRoutingReadiness (never marked ready here, because the harness mocks IRuntime).
+    /// Runs after UmbracoIntegrationTest's own [SetUp] (base-class SetUps run first), which starts the host.
+    /// </remarks>
+    [SetUp]
+    public async Task WaitForUnattendedMigrations()
+    {
+        var runtimeState = GetRequiredService<IRuntimeState>();
+        var service = Services.GetServices<IHostedService>().OfType<BackgroundService>()
+            .FirstOrDefault(s => s.GetType().Name == "UnattendedUpgradeBackgroundService");
+        // Assumption pinned for both legs (floor 17.x, latest 18.x; read in Umbraco 17.8.0; on 18.3.x only the type's presence was confirmed): ExecuteAsync
+        // returns only after the package migrations, the runtime-level change and component initialisation, so its
+        // completion means the migrations are done. Revisit if a major version moves that work off ExecuteAsync.
+        // Throws instead of logging when the service is missing: the static Serilog logger is silent in fixtures that
+        // do not set Logger.Serilog, so a warning would let the race come back unnoticed.
+        if (service?.ExecuteTask is not { } running)
+        {
+            throw new InvalidOperationException("UnattendedUpgradeBackgroundService (or its ExecuteTask) was not found in the test host, so the wait for package migrations cannot work. Umbraco probably renamed it; update JiraContentTestBase.WaitForUnattendedMigrations.");
+        }
+
+        var wasFinished = running.IsCompleted;
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            await running.WaitAsync(StartupTimeout);
+        }
+        catch (TimeoutException) when (!running.IsCompleted)
+        {
+            throw new TimeoutException($"Unattended migrations did not finish within {StartupTimeout.TotalSeconds:F0} s of host start (runtime level {runtimeState.Level}).");
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Unattended migrations failed (runtime level {runtimeState.Level}): {ex.Message}", ex);
+        }
+
+        if (runtimeState.Level != RuntimeLevel.Run)
+        {
+            throw new InvalidOperationException($"Umbraco did not reach the Run level (level {runtimeState.Level}): {runtimeState.BootFailedException}");
+        }
+
+        // wasFinished=false means the test body would have started while the migrations were still running.
+        Serilog.Log.ForContext<JiraContentTestBase>().Information("[jira-test] {Test}: startup finished after {Elapsed} ms (finished at test start: {WasFinished}); test body starts now", TestContext.CurrentContext.Test.Name, timer.ElapsedMilliseconds, wasFinished);
+    }
+
+    private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(60);
 
     protected IContentService ContentService => GetRequiredService<IContentService>();
 

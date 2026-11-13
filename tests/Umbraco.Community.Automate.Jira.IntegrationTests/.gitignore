@@ -2,3 +2,6 @@
 umbraco/
 appsettings-schema*.json
 umbraco-package-schema.json
+
+# Umbraco harness working folder: databases, media and the test run log (uploaded by CI on failure).
+TEMP/
