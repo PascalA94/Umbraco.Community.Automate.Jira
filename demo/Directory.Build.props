@@ -10,6 +10,8 @@
   -->
   <PropertyGroup>
     <AutomateMajor Condition="'$(AutomateMajor)' == ''">18</AutomateMajor>
+    <!-- Opt-in: -p:JiraPackageSource=nuget consumes the published beta instead of src/ (see the TestSite csproj). -->
+    <JiraPackageVersion Condition="'$(JiraPackageVersion)' == ''">$(AutomateMajor).0.0-beta.1</JiraPackageVersion>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

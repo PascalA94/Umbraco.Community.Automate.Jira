@@ -30,8 +30,14 @@
     <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="$(UmbracoAppLocalIcuVersion)" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- Default: build the package from src/. Dogfooding opt-in: -p:JiraPackageSource=nuget restores the published
+       beta from nuget.org instead (Task 22), so what runs is what a consumer installs. Override the version with
+       -p:JiraPackageVersion=... once a later pre-release is out. -->
+  <ItemGroup Condition="'$(JiraPackageSource)' != 'nuget'">
     <ProjectReference Include="..\..\src\Umbraco.Community.Automate.Jira\Umbraco.Community.Automate.Jira.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(JiraPackageSource)' == 'nuget'">
+    <PackageReference Include="Umbraco.Community.Automate.Jira" />
   </ItemGroup>
 
   <ItemGroup>

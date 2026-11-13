@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.1
+// credential-helper-contract: 1.0.2
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
@@ -23,22 +23,63 @@ namespace CredentialHelperContract;
 /// Isolation suite (credential-helper-contract section 5.2). It runs Automate's real reference resolver,
 /// binding resolver and built-in HTTP Request action, not fakes, so it fails if a release lets a step reach
 /// the package's section. Copied verbatim into every consumer package.
+/// The I07 reader pin is a static IL scan: it does not cover reflection invoke, <c>dynamic</c>, <c>calli</c> or
+/// readers outside Umbraco.Automate.*.
 /// </summary>
 public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper output)
     where TPart : struct, Enum
 {
     private const string ControlKey = "Umbraco:Automate:Secrets:Control";
 
-    // The only Umbraco.Automate.* types whose signatures carry configuration (section 5.2, I07), each with the
-    // reason it cannot read a package's section on behalf of a step. Anything new fails until a person has
-    // reviewed it and added it here, because a second reader of arbitrary keys would be a second route in.
-    private static readonly IReadOnlyDictionary<string, string> PinnedConfigurationConsumers = new Dictionary<string, string>(StringComparer.Ordinal)
-    {
-        ["Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver"] = "The $ reference resolver itself; its allow-list is the barrier I01 to I05 and I09 test.",
-        ["Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo"] = "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input.",
-        ["Umbraco.Automate.Core.Persistence.Scoping.UmbracoAmbientAutomateConnection"] = "Reads the CMS connection string to share the ambient database connection; fixed key, no step input.",
-        ["Umbraco.Automate.Persistence.AutomateSchemaInitializer"] = "Reads the CMS connection string to create Automate's tables at startup; fixed key, no step input.",
-    };
+    // Every place Umbraco.Automate.* reaches configuration, by signature or by a call, delegate or token in a method
+    // body (section 5.2, I07), keyed on the outermost type and the access it makes, each with the reason it cannot
+    // read a package's section on behalf of a step. Anything new fails until a person has reviewed it and added it
+    // here, because a second reader of arbitrary keys would be a second route in. The member name is left out of the
+    // key because lambda names (<M>b__6_1) change between builds; a declared member is keyed by its signature, which is stable, so a new member taking IConfiguration on a pinned type is a new pair. A pin with AppliesTo is only valid on the
+    // Automate versions it names, and every pin that applies must still match a reader, so a pin cannot go stale
+    // and hide the next type that takes the same name.
+    private sealed record ConfigurationPin(string Type, string Access, string Reason, Func<Version, bool>? AppliesTo = null);
+
+    private static readonly IReadOnlyList<ConfigurationPin> PinnedConfigurationConsumers =
+    [
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "calls ConfigurationExtensions.GetUmbracoConnectionString", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "calls DatabaseConnectionInfo.ResolveFromConfiguration", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "calls DatabaseConnectionInfo.ResolveName", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "calls IConfiguration.get_Item", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "declares Resolve(IConfiguration)", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "declares Resolve(IOptionsMonitor`1, IConfiguration)", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "declares ResolveFromConfiguration(String, IConfiguration)", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.DatabaseConnectionInfo", "declares ResolveName(IConfiguration)", "Static Resolve/ResolveName/ResolveFromConfiguration read ConnectionStrings:<name>, the name from Umbraco:Automate:UseNamedConnectionString in app settings; no step input."),
+        new("Umbraco.Automate.Core.Persistence.Scoping.ResolvingPooledDbContextFactory`1", "calls DatabaseConnectionInfo.Resolve", "TryBuildRealPool takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check.", v => v.Minor >= 6),
+        new("Umbraco.Automate.Core.Persistence.Scoping.ResolvingPooledDbContextFactory`1", "calls ServiceProviderServiceExtensions.GetRequiredService<IConfiguration>", "TryBuildRealPool takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check.", v => v.Minor >= 6),
+        new("Umbraco.Automate.Core.Persistence.Scoping.UmbracoAmbientAutomateConnection", "calls DatabaseConnectionInfo.Resolve", "Reads the CMS connection string to share the ambient database connection; fixed key, no step input."),
+        new("Umbraco.Automate.Core.Persistence.Scoping.UmbracoAmbientAutomateConnection", "declares ctor(Lazy`1, IOptionsMonitor`1, IConfiguration)", "Reads the CMS connection string to share the ambient database connection; fixed key, no step input."),
+        new("Umbraco.Automate.Core.Persistence.Scoping.UmbracoAmbientAutomateConnection", "declares field _configuration", "Reads the CMS connection string to share the ambient database connection; fixed key, no step input."),
+        new("Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver", "calls IConfiguration.get_Item", "The $ reference resolver itself; its allow-list is the barrier I01 to I05 and I09 test."),
+        new("Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver", "declares ctor(IConfiguration, IOptions`1)", "The $ reference resolver itself; its allow-list is the barrier I01 to I05 and I09 test."),
+        new("Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver", "declares field _configuration", "The $ reference resolver itself; its allow-list is the barrier I01 to I05 and I09 test."),
+        new("Umbraco.Automate.Extensions.AmbientDbContextFactoryExtensions", "calls DatabaseConnectionInfo.Resolve", "ResolveProviderName takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check."),
+        new("Umbraco.Automate.Extensions.AmbientDbContextFactoryExtensions", "calls ServiceProviderServiceExtensions.GetRequiredService<IConfiguration>", "ResolveProviderName takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check."),
+        new("Umbraco.Automate.Extensions.AutomatePooledDbContextOptions", "calls DatabaseConnectionInfo.Resolve", "Configure takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check.", v => v.Minor <= 5),
+        new("Umbraco.Automate.Extensions.AutomatePooledDbContextOptions", "calls ServiceProviderServiceExtensions.GetRequiredService<IConfiguration>", "Configure takes IConfiguration from the service provider only to call DatabaseConnectionInfo.Resolve for the connection string; fixed key, no step input. Invisible to a signature check.", v => v.Minor <= 5),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls ConfigurationBinder.Get<ExecutionOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls IConfiguration.GetSection", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls IUmbracoBuilder.get_Config", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<AutomateOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<CircuitBreakerOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<ExecutionOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<OutboxOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<RateLimitingOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<RunCleanupPolicy>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<ScheduledTriggerOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<ScriptingOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<VersionCleanupPolicy>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<WebhookOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Extensions.UmbracoBuilderExtensions", "calls OptionsConfigurationServiceCollectionExtensions.Configure<WorkflowLockOptions>", "AddUmbracoAutomateCore binds Automate's own typed options from fixed Umbraco:Automate sections at startup. AutomateOptions binds from the parent of the credential section, so I07 also asserts that no bound type has a catch-all member (BoundTypeScan, as C31 does for the package's own options)."),
+        new("Umbraco.Automate.Persistence.AutomateSchemaInitializer", "calls DatabaseConnectionInfo.Resolve", "Reads the CMS connection string to create Automate's tables at startup; fixed key, no step input."),
+        new("Umbraco.Automate.Persistence.AutomateSchemaInitializer", "declares ctor(IConfiguration, IOptionsMonitor`1, AutomateReadinessSignal, IRuntimeState, ILogger`1)", "Reads the CMS connection string to create Automate's tables at startup; fixed key, no step input."),
+        new("Umbraco.Automate.Persistence.AutomateSchemaInitializer", "declares field _configuration", "Reads the CMS connection string to create Automate's tables at startup; fixed key, no step input."),
+    ];
 
     // Automate's own options configurers are allowed (I06 runs them); a hand-written one could rewrite the
     // allow-list after binding, so each must be reviewed and named here. None exist today.
@@ -279,6 +320,101 @@ public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper 
             storeError);
     }
 
+    // Non-string targets whose conversion the resolver leaves to a later step: on all four versions (17.5.1, 18.5.1,
+    // 17.6.0, 18.6.0) it returns the raw string for these (only int is converted inside the resolver), so the later
+    // conversion's error is the channel.
+    private static readonly Type[] ConversionTargets = [typeof(float), typeof(Guid), typeof(DateTime), typeof(DayOfWeek), typeof(TimeSpan)];
+
+    // The conversion a consumer would apply to the raw string the resolver hands back. These are the BCL parsers,
+    // not Automate code, so the echo flag below describes the runtime's messages, not Automate's.
+    private static void DownstreamConversion(Type target, string raw)
+    {
+        if (target == typeof(float))
+        {
+            _ = float.Parse(raw, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        else if (target == typeof(Guid))
+        {
+            _ = Guid.Parse(raw);
+        }
+        else if (target == typeof(DateTime))
+        {
+            _ = DateTime.Parse(raw, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        else if (target == typeof(TimeSpan))
+        {
+            _ = TimeSpan.Parse(raw, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            _ = Enum.Parse(target, raw);
+        }
+    }
+
+    // I05 variants for the non-int targets. Widened: the resolver must hand back the raw package string unconverted
+    // for every target, which is the behaviour on all four versions. A release that starts converting, or throws,
+    // fails here so the README and SECURITY.md wording is re-checked. The run output also records whether a later
+    // BCL conversion of that string echoes the value.
+    [Fact]
+    [Trait("ContractId", "I05b")]
+    public void Control_WideningAllowList_NonStringTargets_ReportsConversionChannel()
+    {
+        var widened = new AutomateOptions();
+        widened.AllowedConfigurationKeyPrefixes = [.. widened.AllowedConfigurationKeyPrefixes, "Umbraco:Automate"];
+        var (host, package, _) = CreateHost(widened);
+        var reference = "$" + PackageKey(SamplePart);
+
+        foreach (var target in ConversionTargets)
+        {
+            object? resolved = null;
+            Exception? thrown = null;
+            try
+            {
+                resolved = host.Resolver.Resolve(reference, target, true);
+            }
+            catch (Exception ex)
+            {
+                thrown = ex;
+            }
+
+            Assert.True(thrown is null, $"{target.Name}: the resolver threw {thrown?.GetType().Name} ('{thrown?.Message}') instead of returning the raw string; re-check the README and SECURITY.md wording.");
+
+            var raw = resolved as string;
+            var converted = resolved is not null && resolved.GetType() == target;
+            output.WriteLine($"{target.Name}: resolver returned {resolved?.GetType().Name ?? "null"}, raw string equals the package value: {raw == package}, converted: {converted}");
+            Assert.True(raw == package && !converted, $"{target.Name}: expected the raw package string unconverted, got {resolved?.GetType().Name ?? "null"}; re-check the README and SECURITY.md wording.");
+
+            if (raw is not null)
+            {
+                var conversion = Assert.ThrowsAny<Exception>(() => DownstreamConversion(target, raw));
+                output.WriteLine($"{target.Name}: a later BCL conversion throws {conversion.GetType().Name}, echoes the value: {conversion.ToString().Contains(package, StringComparison.Ordinal)}; message '{conversion.Message}'");
+            }
+        }
+    }
+
+    // The same targets with the default allow-list: the guard runs before any conversion, so no target type can
+    // turn a package reference into an error that carries its value, or into a value at all.
+    [Fact]
+    [Trait("ContractId", "I05c")]
+    public void PackageReference_NonStringTargets_RefusedBeforeConversion()
+    {
+        var (host, package, _) = CreateHost();
+
+        foreach (var part in Parts)
+        {
+            foreach (var target in ConversionTargets)
+            {
+                foreach (var sensitive in new[] { true, false })
+                {
+                    var exception = Assert.ThrowsAny<Exception>(() => host.Resolver.Resolve("$" + PackageKey(part), target, sensitive));
+
+                    Assert.Contains("not permitted", exception.Message);
+                    Assert.DoesNotContain(package, exception.ToString());
+                }
+            }
+        }
+    }
+
     // Runs Automate's own registration, as a site does, so a release that changes the defaults or adds a
     // configurer that widens the allow-list is caught, not just a change to the AutomateOptions initialiser.
     [Fact]
@@ -316,32 +452,66 @@ public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper 
         Assert.True(configurerTypes.Count == 0, "Unpinned AutomateOptions configurers in Umbraco.Automate.*: " + string.Join(", ", configurerTypes));
     }
 
+    // IL member-reference pin (section 5.2, I07). A signature pin misses a reader that resolves IConfiguration inside
+    // a method body (GetRequiredService<IConfiguration>), so every method body in Umbraco.Automate.* is scanned for
+    // calls, delegate creations and tokens that reach configuration. A (type, access) pair that only appears after an
+    // Automate patch is a new route to configuration and fails until a person has reviewed it.
     [Fact]
     [Trait("ContractId", "I07")]
     public void AutomateConfigurationConsumers_ArePinned()
     {
         var assemblies = ConfigurationConsumerScan.LoadAutomateAssemblies().ToList();
         var scanned = assemblies.Select(a => a.GetName().Name!).OrderBy(n => n, StringComparer.Ordinal).ToList();
-        var consumers = assemblies.SelectMany(ConfigurationConsumerScan.Consumers).ToList();
-        var byType = consumers.GroupBy(c => c.Type, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+        var readers = assemblies.SelectMany(ConfigurationConsumerScan.ConfigurationReaders).ToList();
+        var version = AutomateVersion(assemblies);
+        var pairs = readers.GroupBy(r => (r.Type, r.Access)).OrderBy(g => g.Key.Type, StringComparer.Ordinal).ThenBy(g => g.Key.Access, StringComparer.Ordinal).ToList();
 
-        output.WriteLine("Scanned: " + string.Join(", ", scanned));
-        foreach (var group in byType)
+        output.WriteLine($"Automate {version}; scanned: " + string.Join(", ", scanned));
+        foreach (var pair in pairs)
         {
-            output.WriteLine($"{group.Key}: {string.Join(", ", group.Select(c => c.Member).Distinct())}");
+            output.WriteLine($"PAIR {pair.Key.Type} | {pair.Key.Access} | {string.Join(", ", pair.Select(r => r.Member).Distinct().OrderBy(m => m, StringComparer.Ordinal))}");
         }
 
-        // Positive controls: every Automate assembly a site runs was loaded, and the scan sees internal constructors.
+        // Positive controls: every Automate assembly a site runs was loaded, the signature scan sees internal
+        // constructors, and the IL scan sees the service-locator read that the signature scan missed.
         Assert.Contains("Umbraco.Automate.Core", scanned);
         Assert.Contains("Umbraco.Automate.Web", scanned);
         Assert.Contains("Umbraco.Automate.Persistence", scanned);
         Assert.Contains("Umbraco.Automate.Startup", scanned);
-        Assert.Contains(byType, g => g.Key == "Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver");
+        Assert.Contains(pairs, g => g.Key.Type == "Umbraco.Automate.Core.Settings.ConfigurationReferenceResolver");
+        Assert.Contains(readers, r => r.Access.Contains("GetRequiredService", StringComparison.Ordinal) && r.Access.Contains("IConfiguration", StringComparison.Ordinal));
 
-        var unpinned = byType.Where(g => !PinnedConfigurationConsumers.ContainsKey(g.Key))
-            .Select(g => $"{g.Key} ({string.Join(", ", g.Select(c => c.Member).Distinct())})")
+        var applicable = PinnedConfigurationConsumers.Where(p => p.AppliesTo?.Invoke(version) ?? true).ToList();
+        var unpinned = pairs.Where(g => !applicable.Any(p => p.Type == g.Key.Type && p.Access == g.Key.Access))
+            .Select(g => $"{g.Key.Type} ({string.Join(", ", g.Select(r => r.Member).Distinct().OrderBy(m => m, StringComparer.Ordinal))}: {g.Key.Access})")
             .ToList();
-        Assert.True(unpinned.Count == 0, "Unpinned Umbraco.Automate types that take configuration: " + string.Join("; ", unpinned));
+        Assert.True(unpinned.Count == 0, $"Unpinned Umbraco.Automate types, methods or accesses that reach configuration on Automate {version}: " + string.Join(" | ", unpinned));
+
+        var stale = applicable.Where(p => !pairs.Any(g => g.Key.Type == p.Type && g.Key.Access == p.Access)).Select(p => $"{p.Type} ({p.Access})").ToList();
+        Assert.True(stale.Count == 0, $"Pinned configuration readers that no longer read configuration on Automate {version}: " + string.Join(" | ", stale));
+
+        // AutomateOptions binds from Umbraco:Automate, the parent of the credential section, so a catch-all member on
+        // any bound type would copy a package's credentials into memory. A binding whose type is not a generic
+        // argument cannot be checked, so it fails too.
+        Assert.Equal(BoundTypeScan.SampleExpected, BoundTypeScan.Samples.Select(t => BoundTypeScan.CatchAllMembers(t).Count).ToArray());
+        var bound = readers.SelectMany(r => r.BoundTypes).Distinct().OrderBy(t => t.FullName, StringComparer.Ordinal).ToList();
+        output.WriteLine("Bound types: " + string.Join(", ", bound.Select(t => t.Name)));
+        Assert.Contains(typeof(AutomateOptions), bound);
+        var unknownBindings = readers.Where(r => r.BoundTypeUnknown).Select(r => $"{r.Type} ({r.Member}: {r.Access})").Distinct().ToList();
+        Assert.True(unknownBindings.Count == 0, "Binding calls in Umbraco.Automate.* whose bound type is not statically known: " + string.Join(" | ", unknownBindings));
+        var catchAlls = bound.Select(t => (Type: t, Members: BoundTypeScan.CatchAllMembers(t))).Where(b => b.Members.Count > 0)
+            .Select(b => $"{b.Type.FullName}: {string.Join(", ", b.Members)}")
+            .ToList();
+        Assert.True(catchAlls.Count == 0, "Options types Umbraco.Automate.* binds from configuration have catch-all members that would take a credential: " + string.Join(" | ", catchAlls));
+    }
+
+    // The Automate version under test, from Umbraco.Automate.Core's informational version (build metadata and any
+    // prerelease suffix dropped), so a pin can be scoped to the releases it was reviewed on.
+    private static Version AutomateVersion(IEnumerable<Assembly> assemblies)
+    {
+        var core = assemblies.Single(a => a.GetName().Name == "Umbraco.Automate.Core");
+        var text = core.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? core.GetName().Version!.ToString();
+        return Version.Parse(text.Split('+', '-')[0]);
     }
 
     // Task 0's security condition: the ${ } binding syntax must have no path to configuration. The step runs
@@ -457,7 +627,10 @@ public abstract class CredentialIsolationContractTests<TPart>(ITestOutputHelper 
     }
 }
 
-/// <summary>Finds the Umbraco.Automate.* members whose signatures carry configuration (I07).</summary>
+/// <summary>One place a method body reaches configuration. Member is for the message only: lambda and state machine names change between builds, so a pin is keyed on type and access.</summary>
+internal sealed record ConfigurationReader(string Type, string Member, string Access, IReadOnlyList<Type> BoundTypes, bool BoundTypeUnknown);
+
+/// <summary>Finds where Umbraco.Automate.* reaches configuration: members whose signatures carry it, and method bodies that call, bind or load a token for it (I07).</summary>
 internal static class ConfigurationConsumerScan
 {
     private const BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -489,6 +662,110 @@ internal static class ConfigurationConsumerScan
                 yield return (owner, "property " + property.Name);
             }
         }
+    }
+
+    /// <summary>
+    /// Everything <see cref="Consumers"/> finds, plus every method body in the assembly whose IL calls, creates a
+    /// delegate to, or loads a token (ldtoken: typeof, and the method and field handles expression trees use) that
+    /// reaches configuration: a member declared on, taking or returning an <see cref="IConfiguration"/> (which covers
+    /// GetSection, GetValue, Bind, GetConnectionString, indexers and IUmbracoBuilder.Config), a generic instantiation
+    /// over one (GetRequiredService, GetService), an options binding call (Get, Bind, Configure, BindConfiguration)
+    /// or an environment-variable read. A target or token the runtime cannot resolve is reported rather than
+    /// skipped, so the scan fails closed. It is a static scan: reflection invoke, <c>dynamic</c>, <c>calli</c> and
+    /// readers outside Umbraco.Automate.* are not covered.
+    /// </summary>
+    public static IEnumerable<ConfigurationReader> ConfigurationReaders(Assembly assembly)
+    {
+        foreach (var consumer in Consumers(assembly))
+        {
+            yield return new(consumer.Type, consumer.Member, "declares " + consumer.Member, [], false);
+        }
+
+        foreach (var (type, member, target) in IlScan.Calls(assembly))
+        {
+            var owner = Outermost(type).FullName!;
+            if (target is null)
+            {
+                yield return new(owner, member, "call target could not be resolved", [], false);
+            }
+            else if (ReachesConfiguration(target))
+            {
+                yield return Reader(owner, member, "calls " + Describe(target), target);
+            }
+        }
+
+        foreach (var (type, member, token) in IlScan.MemberTokens(assembly))
+        {
+            var owner = Outermost(type).FullName!;
+            switch (token)
+            {
+                case null:
+                    yield return new(owner, member, "ldtoken could not be resolved", [], false);
+                    break;
+                case Type loaded when Carries(loaded):
+                    yield return new(owner, member, "loads type token " + loaded.Name, [], false);
+                    break;
+                case MethodBase method when ReachesConfiguration(method):
+                    yield return Reader(owner, member, "loads method token " + Describe(method), method);
+                    break;
+                case FieldInfo field when Carries(field.FieldType):
+                    yield return new(owner, member, "loads field token " + field.Name, [], false);
+                    break;
+            }
+        }
+    }
+
+    private static ConfigurationReader Reader(string owner, string member, string access, MethodBase target)
+    {
+        if (!IsBinding(target))
+        {
+            return new(owner, member, access, [], false);
+        }
+
+        // A binding call whose target type is not a generic argument (Bind(object), Get(Type)) cannot be checked for catch-alls.
+        var bound = target.IsGenericMethod ? target.GetGenericArguments().Where(a => !a.IsGenericParameter).ToList() : [];
+        return new(owner, member, access, bound, bound.Count == 0 || (target.IsGenericMethod && target.GetGenericArguments().Any(a => a.IsGenericParameter)));
+    }
+
+    // Calls that copy configuration into a typed object, whose members decide what a parent section can carry.
+    private static bool IsBinding(MethodBase target) => (target.DeclaringType?.Name, target.Name) switch
+    {
+        ("ConfigurationBinder", "Get" or "Bind") => true,
+        ("OptionsConfigurationServiceCollectionExtensions", "Configure") => true,
+        ("OptionsBuilderConfigurationExtensions", "Bind" or "BindConfiguration") => true,
+        _ => false,
+    };
+
+    private static bool ReachesConfiguration(MethodBase target)
+    {
+        if (IsBinding(target))
+        {
+            return true;
+        }
+
+        // Environment variables are a configuration source, so reading them directly is a second route to a credential.
+        if (target.DeclaringType == typeof(Environment) && target.Name is "GetEnvironmentVariable" or "GetEnvironmentVariables" or "ExpandEnvironmentVariables")
+        {
+            return true;
+        }
+
+        if (target.DeclaringType is { } declaring && Carries(declaring))
+        {
+            return true;
+        }
+
+        if (target.GetParameters().Any(p => Carries(p.ParameterType)) || (target is MethodInfo method && Carries(method.ReturnType)))
+        {
+            return true;
+        }
+
+        return target.IsGenericMethod && target.GetGenericArguments().Any(Carries);
+    }
+
+    private static string Describe(MethodBase target)
+    {
+        var generics = target.IsGenericMethod ? "<" + string.Join(",", target.GetGenericArguments().Select(a => a.Name)) + ">" : string.Empty;
+        return $"{target.DeclaringType?.Name}.{target.Name}{generics}";
     }
 
     public static bool Carries(Type type)

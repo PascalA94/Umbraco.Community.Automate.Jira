@@ -1,0 +1,4 @@
+# Spikes build in place outside central package management; the root Directory.Build.props still turns on
+# lock files, which are throwaway here.
+packages.*.lock.json
+packages.lock.json

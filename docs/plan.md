@@ -752,7 +752,7 @@ Moved forward from Task 22 step 6 (plan review P11), so the beta never freezes a
 - [x] **Step 1:** Re-check design facts marked [verified] that the build relies on (latest Automate 17.x/18.x and CMS patches, ranges still correct, `AllowedConfigurationKeyPrefixes` defaults unchanged in any newer Automate patch) and update `docs/spikes.md`. Confirm the CI latest leg is green on the newest Automate patch of each line. If a newer Automate patch exists, re-run Task 0 steps 3, 4 and 7 (the council test 10 surfaces, plan review P19) on it before tagging. Confirm Task 20a is recorded with no UNKNOWN.
 - [x] **Step 2:** Run `./scripts/test.sh`, `scripts/vulnerable-check.sh` for each line, and the contract tests. Expected: all `Failed: 0`, no vulnerable packages, contract `Passed: 2`.
 - [x] **Step 3 (Pascal):** tag `v18.0.0-beta.1` and push. `publish.yml` runs only on `v<newest line>.<minor>.<patch>[-<suffix>]` tags, and the tagged commit on `main` must already carry a `## 18.0.0-beta.1` heading in `CHANGELOG.md`, so merge the changelog PR before tagging. Expected: `pack-release` produces `18.0.0-beta.1` and, if `eng/lines.txt` has 17, `17.0.0-beta.1`; nuspec ranges as in Global Constraints. Aliases are now frozen.
-- [ ] **Step 4 (Pascal):** push to NuGet (listed, pre-release).
+- [x] **Step 4 (Pascal):** push to NuGet (listed, pre-release). Done: publish run 43460855765; `17.0.0-beta.1` and `18.0.0-beta.1` listed on nuget.org at 2026-11-13 16:47 UTC.
 - [x] **Checkpoint (Pascal commits):** `git add CHANGELOG.md docs/spikes.md` / suggested message `chore: release 18.0.0-beta.1` (done: PR #3 `a4f6ab2`, PR #4 `62bb3af`)
 
 ### Task 22: Dogfood on the sandbox Jira (final)
