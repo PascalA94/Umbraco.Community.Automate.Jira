@@ -483,6 +483,14 @@ The worst observed lag (0.36 s) is far below Automate's first retry delay (30 s,
 - **Display title:** "Jira connector for Umbraco Automate" (the fallback in design §13 item 4). It is a descriptive use, with no Atlassian logo and with the "not affiliated with Atlassian" line in the README.
   - Pascal's 15-minute read of Atlassian's trademark guidance has **not** happened.
   - If the guidance allows "Jira for Umbraco Automate", change the `<Title>` before the alpha push. The package ID is the same either way.
+- **Decision (Pascal, 2026-11-12): display title "Umbraco Automate connector for Jira".** It replaces the fallback above.
+  - **The rule:** Atlassian's trademark guidelines (atlassian.com/legal/trademark, read 2026-11-12) allow a name only as a referential phrase followed by the mark: "'Acme plugin for Jira®' is okay, whereas 'Jira® plugin for Acme' is not." The rule covers any third-party use, not only Marketplace apps [HIGH - trademark page].
+  - **Effect:** both earlier candidates put Jira first, so neither complies.
+  - **Package ID:** `Umbraco.Community.Automate.Jira` is kept. The guidelines say nothing on package IDs, and Jira is last [MEDIUM].
+  - **What the guidelines require:** use must not create "a false or misleading impression of endorsement, sponsorship, or association" [HIGH]. Both READMEs now say the project is not affiliated with or endorsed by Atlassian and that "Jira" is a trademark of Atlassian.
+  - **Logo:** no Atlassian logo in the package icon or the Marketplace tile.
+  - **Changed:** `<Title>`, `<Product>`, `umbraco-marketplace.json`, both READMEs, `RUNBOOK.md` and the gitleaks sample header.
+  - **Not checked:** Umbraco's policy on using "Umbraco Automate" in a community package name.
 - **Alpha build:** `-p:JiraIdReservation=true` compiles only the appsettings schema class, so the 0.0.1-alpha registers no Automate alias. The spike no-op action is deleted.
 - **Pack command (verified 2026-11-04):**
   `dotnet pack src/Umbraco.Community.Automate.Jira -p:AutomateMajor=18 -p:JiraIdReservation=true -p:VersionPrefix=0.0.1 -p:VersionSuffix=alpha "-p:Description=Placeholder%2C not functional. Reserves the package ID." -o out`
@@ -526,4 +534,54 @@ The worst observed lag (0.36 s) is far below Automate's first retry delay (30 s,
 - **Contract:** credential-helper-contract 1.0.1 (test-only patch) updates I05's conversion oracle and adds a typeof(int) refusal check to I01. Full suite passes on 17.5.1, 18.5.1, 17.6.0 and 18.6.0.
 - **Task 21 step 1 status:**
   - Task 0 steps 3 and 4 (council tests 1 and 2): accepted on CI evidence, since contract 5.2 makes I01 to I05 their CI form and they pass on 17.6.0 and 18.6.0. Residual: those tests bypass the WorkflowCore executor and run persistence.
-  - **Task 0 step 7 (council test 10 surfaces) on 17.6.0 and 18.6.0: UNKNOWN, escalated, blocks the beta tag.** No test covers health checks, the log viewer, Automate run and health views or Management API endpoints, and I07 reads signatures only. 18.6.0 has new user strings (a "Library" root, recycle-bin access) suggesting new endpoints [LOW - strings in the DLL]. To do: the step 7 surface walk on both versions, at least a Swagger endpoint diff against 18.5.1, and a read of both release notes for new configuration readers.
+  - Task 0 step 7 (council test 10 surfaces) on 17.6.0 and 18.6.0: **closed with residuals** (security-analyst, 2026-11-12). See "Task 0 step 7 on 17.6.0 and 18.6.0" below.
+
+### Task 0 step 7 on 17.6.0 and 18.6.0 (2026-11-12)
+
+**Method.** Same sites as the 17.5.1 run, floated to Automate 17.6.0 (CMS 17.8.0) and 18.6.0 (CMS 18.3.0), confirmed from each site's `deps.json`. A fresh 36-character sentinel (sha256 prefix `62448e23`) was used, run in three states: default allow-list, widened to `Umbraco:Automate`, and restored.
+- Isolation cases re-run through the echo listener in each state.
+- `scan-surfaces.py` as before, with a Variables value as an extra marker, so the default run carries its own positive control.
+- `t21-tools/scan-query-params.py`: GETs with required query parameters or non-GUID path parameters.
+- `t21-tools/check-post.py`: the new `POST catalogue/step-types/{alias}/outcomes` and `output-schema` for every step type and settings field, with whole and embedded references to the package key and to a Secrets control.
+- Swagger operation and schema diffs against 17.5.1 and 18.5.1 (`t21-tools/swdiff.py`).
+- Resolver probe I01 to I06, and a conversion-error check over 10 target types.
+- An IL scan of every Automate assembly for configuration access (`t21-tools/sa-cfgscan`: signatures and member references, including `GetRequiredService<IConfiguration>`), which replaces the constructor-only check.
+- The work ran in a copy of `spikes/CredentialIsolation`, because the spikes no longer build in place (NU1008). The tools and the patched scanner and controller are now in the repo. The evidence (gitignored, 69 `t21*` files) is pinned by `spikes/CredentialIsolation/t21-evidence.SHA256SUMS`.
+
+| Check | 17.6.0 | 18.6.0 |
+|---|---|---|
+| Isolation, default (10 cases) | package reference literal or "not permitted"; `readCredential` true | same |
+| Isolation, widened (6 cases) | value reaches listener; guard refuses | same |
+| Isolation, restored (3 cases) | back to literal and "not permitted" | same |
+| Surface scan, default | 5,059 calls, 7 health groups; sentinel 0 in responses, 0 in files | 5,329 calls, 7 health groups; 0 and 0 |
+| In-run control (Variables marker) | found in log viewer, run data, SQLite, log file | same |
+| Surface scan, widened (control) | sentinel in 11 responses, 3 files | 12 responses, 3 files |
+| Query and non-GUID scan | 2,982 calls, 99 routes; sentinel 0 | 3,272 calls, 109 routes (10 element); 0 |
+| `outcomes` / `output-schema` POSTs | 1,080 per mode; 121 "not permitted" by default; sentinel 0 in both modes | 1,296 per mode; 148; 0 |
+| Site console logs | sentinel 0 default and restored, 2 widened | same |
+| Swagger diff | Management 0 changes; Automate +1 (`outcomes`), `output-schema` responses changed | same |
+| Configuration readers (IL) | resolver; connection string (4 sites, 3 via `GetRequiredService<IConfiguration>`); options binding without a catch-all | same |
+| Resolver probe I01 to I06 | pass | pass |
+| Conversion errors | default refuses all 10 types before conversion; 0 of 30 messages echo the value | same |
+
+- **The 18.6.0 "Library" strings** are an element picker in the static assets plus 10 new element step types (create, get, get property, update property, publish and unpublish element; element saved, published, unpublished and batch saved triggers). Their 27 settings fields all go through the resolver. The element, tree and recycle-bin endpoints already existed in CMS 18.3.0.
+
+**Ruling: closed with residuals; the beta tag is unblocked** [HIGH - tool output, security-analyst, 2026-11-12]. Scope: Automate surfaces with the default allow-list on these two versions. Dependency CVEs (Task 21 step 2), Cloud and Deploy (Task 20a) and the package's own actions (Task 18) are not covered here.
+
+**Residuals:**
+- Done before the beta tag (2026-11-12): the patched scanner, `scan-query-params.py`, `check-post.py`, `swdiff.py` and the IL scanner are in `spikes/CredentialIsolation/` (`t21-tools/`), with `t21-evidence.SHA256SUMS` for the evidence.
+- Before GA (Medium): change I07 from a constructor-signature pin to an IL member-reference pin on configuration access, because the constructor check missed the `GetRequiredService<IConfiguration>` readers.
+- Before GA: call `connections/{id}/test` and `runs/{id}/replay` with package references, default and widened.
+- Before GA: on 18.6, run `createElement` and `updateElementProperty` with package references and re-scan with an element present (can fold into Task 22 step 5).
+- Before GA: on 17.6 and 18.6 the resolver returns the raw string for float, Guid, DateTime, enum and TimeSpan targets, so a later conversion may echo a widened or Variables value. Make the README and SECURITY.md residual version-specific and add I05 variants for those types.
+- Before GA: open Log viewer and the Automate run and health views in a browser during Task 22 step 5.
+- Before GA: fix NU1008 so the spikes build in place (opt `spikes/` out of central package management).
+- Runbook: cover `version-history/.../compare/...`, `workspaces/{id}/groups/{groupId}` and every version in version history. Note that the scanner matches exact substrings only, so base64 or hashed forms are not found.
+- The run's throwaway sentinel was printed once in a local transcript. It is not in any evidence file and will not be reused.
+- Not cover for Task 21 step 2: the throwaway `Probe18.csproj` restore reports NU1903 for `System.Security.Cryptography.Xml` and `.Pkcs` 10.0.10. Spike only; `vulnerable-check.sh` still has to pass on the package.
+
+## Live contract tests in CI (release-checks run 43126674419, 2026-11-12)
+
+- `release-checks` on `b0b7166`: contract tests `Passed: 2` on 17 and 18 against SBX through the gateway (scoped token with exactly `read:jira-work`, `write:jira-work`, `read:jira-user`), and integration on SQL Server passed on both lines [HIGH - CI run].
+- **Dedupe search lag: 0.7 s** on both lines (a just-created issue was found by the marker search 0.7 s after creation) [HIGH - CI run, one sample per line].
+- S3's open item on the scope list is settled for the actions and dedupe. Validate (`/myself`, needs `read:jira-user`) is not covered by the contract tests; it is still to be checked in a local SBX session.

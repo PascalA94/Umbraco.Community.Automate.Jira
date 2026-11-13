@@ -18,7 +18,7 @@
 
 ## Global Constraints
 
-- Package ID `Umbraco.Community.Automate.Jira`. Display title "Jira for Umbraco Automate" (or "Jira connector for Umbraco Automate" if Task 5 says so). Never renamed.
+- Package ID `Umbraco.Community.Automate.Jira`. Display title "Umbraco Automate connector for Jira" (Task 5 decision, 2026-11-12; see `docs/spikes.md`). The package ID is never renamed.
 - Aliases, permanent once `-beta.1` ships: connection `community.jira.cloud`; authenticator `community.jira.signature`; actions `community.jira.createIssue`, `community.jira.addComment`, `community.jira.transitionIssue`, `community.jira.readWebhookEvent`, `community.jira.findContentByKey`. Settings and output field names freeze at the same point (including `CredentialName` on the connection and the authenticator).
 - Dependency ranges, closed both ends:
   - 18 line: `Umbraco.Automate.Core [18.5.1, 19.0.0)`; `Umbraco.Cms.Core` and `Umbraco.Cms.Infrastructure` `[18.3.0, 19.0.0)`.
@@ -39,7 +39,7 @@
 - Pitfall S1 (Critical): the MVP ships no controllers. Any later controller derives from `ManagementApiControllerBase`. Enforced by `ArchitectureTests`.
 - Pitfalls P7/P11: no network or heavy work at startup or in constructors.
 - Pitfalls P3/P4/P9: `findContentByKey` uses one Examine query and one `IContentService.GetByIds` call; no tree traversal.
-- Supply chain: central package management, `RestorePackagesWithLockFile` with one lock file per line (`NuGetLockFilePath` = `packages.$(AutomateMajor).lock.json`, because one lock file cannot hold two Automate versions). CI from Task 1a: per line, a **floor** leg (`--locked-mode`, the pinned floor versions) and a **latest** leg (floating `$(AutomateMajor).*` for Automate and CMS, no lock file), so the isolation suite re-runs on every Automate release. Vulnerable-package check and gitleaks on every PR. No org PR-check enrolment: the repo's own CI is the merge boundary (Pascal, 2026-10-30).
+- Supply chain: central package management, `RestorePackagesWithLockFile` with one lock file per line (`NuGetLockFilePath` = `packages.$(AutomateMajor).lock.json`, because one lock file cannot hold two Automate versions). CI from Task 1a: per line, a **floor** leg (`--locked-mode`, the pinned floor versions) and a **latest** leg (floating `$(AutomateMajor).*` for Automate and CMS, no lock file), so the isolation suite re-runs on every Automate release. Vulnerable-package check and gitleaks on every PR. No org PR-check enrolment: the repo's own CI is the merge boundary (Pascal, 2026-10-30). One CI tool sits outside the lock files, next to gitleaks: `dotnet-stack` 10.0.750501, pinned by SHA-512 (checked against nuget.org's catalog `packageHash`) and installed from a local folder as the only NuGet source, used only for hang diagnostics in the integration tests (`HangWatchdogAttribute`), never in publish.yml.
 - **Private repo until disclosure** (Wave-1 decision, supersedes "public from Task 1"). The repo stays private until Umbraco HQ responds to the private Automate report, agrees to disclosure, or 90 days have passed since it was sent. Then it goes public. `docs/` holds only `design.md`, `plan.md`, `spikes.md` and `runbook.md`. `security-review.md`, `plan-review.md`, council transcripts and the S7 evidence for the core gap never enter the repo; they stay in the private workspace.
 - Never retry a POST inside the client. GETs retry once on 429 only when `Retry-After` ≤ 5 s.
 - `IJiraClient` stays an interface (Data Center may come later; do not build for it).

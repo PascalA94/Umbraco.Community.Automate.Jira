@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      hang_probe:
+        description: "Run only the deliberately hanging integration probe to prove the watchdog and the diagnostics upload. The run is expected to go red."
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,20 +74,62 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.*.lock.json'
 
+      # Hang diagnostics for the integration tests (HangWatchdogAttribute): on a hung test the watchdog runs this
+      # tool to write every thread's managed stack, then ends the test host. Exact version, outside the lock files.
+      # Downloaded from nuget.org and verified against the SHA-512 in nuget.org's catalog entry for this version
+      # (packageHash, base64 decoded to hex), then installed from a local folder as the only source, so the tool
+      # that runs in the test job is the bytes that were checked. Own package cache, so nothing from the NuGet
+      # cache restored above can stand in for it.
+      - name: Install dotnet-stack (hang diagnostics, hash verified)
+        env:
+          DOTNET_STACK_VERSION: "10.0.750501"
+          DOTNET_STACK_SHA512: "f87c4e5ba46fb7f68ca2c6c4254fb8517b678e2b7c3082ab1876e84ee1dfd6071a614ab0e99d05b675bb21740c4270d86c382e2defaa221a507f232d17f8597f"
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/dotnet-stack-src"
+          mkdir -p "$src" "$RUNNER_TEMP/dotnet-stack-packages"
+          nupkg="dotnet-stack.${DOTNET_STACK_VERSION}.nupkg"
+          curl -sSfL --retry 3 -o "$src/$nupkg" "https://api.nuget.org/v3-flatcontainer/dotnet-stack/${DOTNET_STACK_VERSION}/${nupkg}"
+          echo "${DOTNET_STACK_SHA512}  $src/$nupkg" | sha512sum -c -
+          cat > "$RUNNER_TEMP/dotnet-stack-nuget.config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="dotnet-stack-local" value="$src" />
+            </packageSources>
+          </configuration>
+          EOF
+          NUGET_PACKAGES="$RUNNER_TEMP/dotnet-stack-packages" dotnet tool install dotnet-stack \
+            --version "$DOTNET_STACK_VERSION" \
+            --tool-path "$RUNNER_TEMP/dotnet-tools" \
+            --configfile "$RUNNER_TEMP/dotnet-stack-nuget.config"
+          echo "JIRA_TEST_DOTNET_STACK=$RUNNER_TEMP/dotnet-tools/dotnet-stack" >> "$GITHUB_ENV"
+
       # Floor: the pinned floor versions, restored from the committed per-line lock files.
       # --locked-mode is floor-only, because a floating version cannot be locked.
       - name: Restore (floor, locked)
         if: matrix.leg == 'floor'
         run: dotnet restore Umbraco.Community.Automate.Jira.slnx --locked-mode -p:AutomateMajor="$LINE"
       - name: Test (floor)
-        if: matrix.leg == 'floor'
-        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE"
+        if: matrix.leg == 'floor' && !inputs.hang_probe
+        timeout-minutes: 15
+        # Step timeout and VSTest blame-hang are backstops for a hang outside a test body (the watchdog covers a
+        # hang inside one): either one fails the step, so the `if: failure()` upload still runs. The dump type is
+        # none because a full dump of the test host could hold secrets and this repo is public.
+        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE" --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none
+      # Manual probe (workflow_dispatch, hang_probe=true): an [Explicit] test that hangs on purpose. The watchdog
+      # ends it at 120 s with a stack dump, so this step is expected to go red and the upload below must run.
+      - name: Hang probe (floor)
+        if: matrix.leg == 'floor' && inputs.hang_probe
+        timeout-minutes: 10
+        run: dotnet test tests/Umbraco.Community.Automate.Jira.IntegrationTests --no-restore -p:AutomateMajor="$LINE" --filter "Name~Save_BlockedByLockOnAnotherConnection"
       - name: Vulnerable packages (floor)
-        if: matrix.leg == 'floor'
+        if: matrix.leg == 'floor' && !inputs.hang_probe
         run: scripts/vulnerable-check.sh "$LINE"
       # Plan review P1: the packed README is the reviewed one, and no demo or seed file ships.
       - name: Packed README (floor)
-        if: matrix.leg == 'floor'
+        if: matrix.leg == 'floor' && !inputs.hang_probe
         run: |
           scripts/pack.sh "$LINE" "$RUNNER_TEMP/pkg"
           for pkg in "$RUNNER_TEMP"/pkg/*.nupkg; do scripts/check-packed-readme.sh "$pkg"; done
@@ -92,15 +139,39 @@ jobs:
         if: matrix.leg == 'latest'
         run: dotnet restore Umbraco.Community.Automate.Jira.slnx --force-evaluate -p:AutomateMajor="$LINE" -p:AutomateFloat=true -p:RestorePackagesWithLockFile=false
       - name: Test (latest)
-        if: matrix.leg == 'latest'
-        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE" -p:AutomateFloat=true
+        if: matrix.leg == 'latest' && !inputs.hang_probe
+        timeout-minutes: 15
+        # Step timeout and VSTest blame-hang are backstops for a hang outside a test body (the watchdog covers a
+        # hang inside one): either one fails the step, so the `if: failure()` upload still runs. The dump type is
+        # none because a full dump of the test host could hold secrets and this repo is public.
+        run: dotnet test Umbraco.Community.Automate.Jira.slnx --no-restore -p:AutomateMajor="$LINE" -p:AutomateFloat=true --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none
+      - name: Hang probe (latest)
+        if: matrix.leg == 'latest' && inputs.hang_probe
+        timeout-minutes: 10
+        run: dotnet test tests/Umbraco.Community.Automate.Jira.IntegrationTests --no-restore -p:AutomateMajor="$LINE" -p:AutomateFloat=true --filter "Name~Save_BlockedByLockOnAnotherConnection"
       - name: Vulnerable packages (latest)
-        if: matrix.leg == 'latest'
+        if: matrix.leg == 'latest' && !inputs.hang_probe
         run: scripts/vulnerable-check.sh "$LINE" float
       - name: Resolved Automate version (latest)
-        if: matrix.leg == 'latest'
+        if: matrix.leg == 'latest' && !inputs.hang_probe
         # `dotnet list package` rejects -p: properties, so the line goes in as environment variables.
         run: AutomateMajor="$LINE" AutomateFloat=true dotnet list Umbraco.Community.Automate.Jira.slnx package | grep Umbraco.Automate.Core
+
+      # The Umbraco/Automate log of the integration run and any thread-stack capture from a hung test. Short
+      # retention: these are only for diagnosing a failed leg.
+      # Never add this upload to a job that holds secrets (for example release-checks integration-sqlserver, which
+      # has the SA connection string): the logs are written at Debug and can carry them, and ::add-mask:: masks
+      # runner log output only, not files, so a secret would land in a downloadable artifact.
+      - name: Upload integration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-diagnostics-${{ matrix.line }}-${{ matrix.leg }}
+          path: |
+            tests/Umbraco.Community.Automate.Jira.IntegrationTests/TEMP/logs/
+            tests/Umbraco.Community.Automate.Jira.IntegrationTests/bin/Debug/net10.0/hang-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
   gitleaks:
     name: gitleaks
