@@ -546,7 +546,7 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
   - The job still reported failure because the workflow's pass check looked for the one-line `Passed!` summary, which `verbosity=normal` does not print. The check now reads the TRX counters (`total = executed = passed = 2`, so a skipped run fails), and the console uses detailed verbosity so the dedupe search lag is printed. Verified locally (a skipped run is rejected; the pattern matches a two-pass file) and with actionlint.
 - **Message (record only):** `ci: read the contract test count from TRX and print test output`
 
-## Task 21 step 1 in progress (2026-11-12)
+## Task 21 (record, 2026-11-12 to 2026-11-13)
 
 - **Done:**
   - Task 0 step 7 re-run on Automate 17.6.0 and 18.6.0: **closed with residuals**, beta unblocked (security-analyst). Recorded in `docs/spikes.md`, "Task 0 step 7 on 17.6.0 and 18.6.0". Tools in `spikes/CredentialIsolation/t21-tools/`, evidence hashes in `t21-evidence.SHA256SUMS`.
@@ -562,3 +562,12 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - **Still open, owned by Pascal:** the live Jira webhook capture (timestamp unit, retry bodies, comment shape); Validate in a local SBX session.
 - **Uncommitted since `b0b7166`:** this file, `docs/spikes.md`, `docs/plan.md`, the title rename files, `spikes/CredentialIsolation/` (scanner, controller, `t21-tools/`, `t21-evidence.SHA256SUMS`), `.github/workflows/build-test.yml` and the integration test files listed above. They go in with the M5 milestone commit, through a PR.
 - **Resume:** start a fresh session and say "continue".
+
+## Beta release (2026-11-13)
+
+- PR #3 squash-merged as `a4f6ab2` (CI hang fix, hang diagnostics, title rename, Task 21 step 1 records). The `hang_probe` dispatch run 43439874171 failed on purpose on all four legs and uploaded a `stacks-*.txt` file (248 lines, `ObtainWriteLock` on the test thread, no migration frames) and a log with 68 Debug lines per leg. This closes security-analyst condition M2.
+- PR #4 squash-merged as `62bb3af` (`## 18.0.0-beta.1` changelog heading).
+- A first `v18.0.0-beta.1` tag was pushed on `a4f6ab2` before PR #4 merged. Its publish run 43443458157 failed at "Tag is on main and in the changelog", so nothing was packed or pushed. The tag was deleted and re-pushed on `62bb3af`.
+- Publish run 43460855765: build green. It packed `17.0.0-beta.1` (Automate `[17.5.1, 18.0.0)`, CMS `[17.8.0, 18.0.0)`) and `18.0.0-beta.1` (Automate `[18.5.1, 19.0.0)`, CMS `[18.3.0, 19.0.0)`), titled "Umbraco Automate connector for Jira". At the time of writing, the publish job was waiting for Pascal's approval on the `nuget` environment.
+- **Next:** (1) approve the `nuget` deployment, then confirm both versions are listed on nuget.org (Task 21 step 4); (2) dismiss CodeQL alert #6 (a re-flag of #5 on the local-only spike controller); (3) Task 22 dogfood and GA. Pascal-owned items are unchanged: the live Jira webhook capture, Validate in a local SBX session, the `[[SECOND-PERSON]]` runbook placeholder, SEC-M3-4.
+- **Local SDK note:** .NET 10.0.404 now lives in `~/.dotnet`, not on the default PATH. Set `DOTNET_ROOT=$HOME/.dotnet` and put `$HOME/.dotnet` first on PATH.
