@@ -199,7 +199,7 @@ Outputs: `ContentKey`, `Name`, `ContentTypeAlias`, `IsPublished`, `UpdateDate`.
 Automate retries failed steps. To stop a retry creating a second issue or comment, Create issue and Add comment always check first:
 
 - Each step works out a key. With no Dedupe key set, the key is made from the automation, run, step, the For each position and the step's inputs. Retries of the same step resolve the same key, so they find what the first attempt created.
-- Set **Dedupe key** to widen this across runs, for example to a form entry ID, so a re-run returns the same issue. Prefer non-personal values: only a short keyed hash of the key is sent to Jira (as a `cj-dedupe-…` label on issues, and as a comment property on comments), but anyone with backoffice access could recompute it.
+- Set **Dedupe key** to widen this across runs, for example to a form entry ID, so a re-run returns the same issue. Automate's **Replay** starts a new run, so without a Dedupe key, replaying a completed run creates a second issue; with one, the replay returns the first issue with `WasExisting` true. Prefer non-personal values: only a short keyed hash of the key is sent to Jira (as a `cj-dedupe-…` label on issues, and as a comment property on comments), but anyone with backoffice access could recompute it.
 - **Inside a For each loop**, set a per-item Dedupe key. Without one, two items in different positions get different keys; with a constant Dedupe key, every item gets the first item's issue.
 - Recreating the connection starts cross-run protection afresh, because the hash is keyed with the connection's ID.
 - **If the check cannot run** (Jira down, rate limited, rejected), the step fails and posts nothing. Automate's retry runs the check again.
@@ -240,8 +240,8 @@ Residuals:
 
 ### Use case 1: form submission to a Jira ticket
 
-1. Trigger: Umbraco Forms **Form Submitted** (`umbracoForms.formSubmitted`, needs `Umbraco.Forms.Automate`). **Turn on Forms anti-spam** (honeypot or CAPTCHA) on the form, and consider a per-site rate limit in front of the form: every submission creates an issue.
-2. **Create Jira issue**: Project key `SUP`, Issue type `Task`, Summary and Description bound from the form fields, Description format **Plain text**, Dedupe key `${ trigger.recordUniqueId }`.
+1. Trigger: Umbraco Forms **Form Submitted** (`umbracoForms.formSubmitted`, needs `Umbraco.Forms.Automate`). **Turn on Forms anti-spam** (honeypot or CAPTCHA) on the form, and consider a per-site rate limit in front of the form: every submission creates an issue. The Forms triggers only appear in the trigger picker when the workspace's service account is in a user group with access to the **Forms** section.
+2. **Create Jira issue**: Project key `SUP`, Issue type `Task`, Summary and Description bound from the form fields (for example `${ trigger.fields.summary }`, where `summary` is the field alias), Description format **Plain text**, Dedupe key `${ trigger.recordUniqueId }`. Leave **Error behaviour** on **Retry** (the default): with **Terminate**, a create whose response is lost fails the run even though Jira made the issue, and nothing retries it. Replaying that run with the Dedupe key set returns the issue instead of making a second one. With Retry, Automate can still mark a run **Failed** after a later attempt of the step succeeded (seen on Automate 18.x): open the run and check the last attempt of the step, which shows the issue key and `WasExisting`.
 3. Add an Automate failure notification to the automation, so a broken token or a full project does not fail silently.
 
 ### Use case 2: comment on an existing issue

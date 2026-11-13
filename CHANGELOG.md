@@ -4,6 +4,13 @@ Versions follow `<Umbraco major>.<minor>.<patch>`. One tag ships the 17 and 18 l
 
 ## Unreleased
 
+## 18.0.0
+
+First stable release. The package code is the same as `18.0.0-beta.1`; this release adds what the live check on a site against Jira Cloud found.
+
+- Checked live: form submission to a Jira issue, hostile text kept literal, an unknown issue type (lists the valid types), a rejected token (no retry), a response lost after Jira created the issue (the retry returns the same issue), Replay with a Dedupe key, configuration isolation (Automate refuses to resolve the credential key in other steps) and a search of logs, database, exports and run data for the token (none found).
+- README: the Forms triggers need the workspace service account to have the Forms section; form fields bind as `${ trigger.fields.<alias> }`; leave Error behaviour on Retry; Replay starts a new run, so set a Dedupe key to make it return the same issue; Automate can mark a run Failed after a later attempt of the step succeeded.
+
 ## 18.0.0-beta.1
 
 - Connection `community.jira.cloud` on package-owned credentials (`Umbraco:Automate:Jira:Credentials:{name}`), with Validate warnings for classic tokens, admin accounts and committed credentials.
