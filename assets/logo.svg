@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Package icon: an issue card (two text lines, status dot) with an arrow leaving it. Navy #1B264F, white, pink #F5C1BC. assets/logo-128.png and logo-512.png are rendered from this file. -->
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="#1B264F"/>
+  <rect x="96" y="152" width="200" height="208" rx="24" ry="24" fill="#FFFFFF"/>
+  <rect x="124" y="200" width="144" height="30" rx="15" ry="15" fill="#1B264F"/>
+  <rect x="124" y="246" width="96" height="30" rx="15" ry="15" fill="#1B264F"/>
+  <circle cx="254" cy="312" r="24" fill="#1B264F"/>
+  <circle cx="254" cy="312" r="16" fill="#F5C1BC"/>
+  <rect x="304" y="236" width="56" height="40" fill="#F5C1BC"/>
+  <polygon points="344,196 416,256 344,316" fill="#F5C1BC"/>
+</svg>

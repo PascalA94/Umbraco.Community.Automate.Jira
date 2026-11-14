@@ -9,7 +9,9 @@
         "ImageUrl": "https://github.com/PascalA94.png"
     },
     "Category": "Automation",
-    "LicenseTypes": ["Free"],
+    "LicenseTypes": [
+        "Free"
+    ],
     "DocumentationUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira#readme",
     "IssueTrackerUrl": "https://github.com/PascalA94/Umbraco.Community.Automate.Jira/issues",
     "PackageType": "Package",
@@ -20,6 +22,30 @@
             "Description": "Core automation system for Umbraco CMS"
         }
     ],
-    "Screenshots": [],
-    "Tags": ["umbraco", "umbracopackage", "automate", "automation", "jira", "atlassian"]
+    "Screenshots": [
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/01-automation-designer.png",
+            "Caption": "An automation that creates a Jira issue when a page is published."
+        },
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/02-create-issue-retry.png",
+            "Caption": "The Create Jira issue step, set to retry, so a create whose response was lost is retried without a second issue."
+        },
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/03-create-issue-fields.png",
+            "Caption": "Project, issue type, summary and description for the new issue."
+        },
+        {
+            "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/04-jira-webhook-trigger.png",
+            "Caption": "A webhook trigger that only accepts deliveries signed with your Jira webhook secret."
+        }
+    ],
+    "Tags": [
+        "umbraco",
+        "umbracopackage",
+        "automate",
+        "automation",
+        "jira",
+        "atlassian"
+    ]
 }
