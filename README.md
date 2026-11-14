@@ -10,10 +10,27 @@ A community package, not made or supported by Umbraco HQ. It is not affiliated w
 
 **Requires** Umbraco CMS 17.8+ with Umbraco Automate 17.5.1+, or Umbraco CMS 18.3+ with Umbraco Automate 18.5.1+. Jira Cloud only (not Data Center).
 
-> **Status: pre-release.** Aliases and settings are frozen from `18.0.0-beta.1`. Until then they can still change.
+## Quick start
+
+About 15 minutes if you have used Automate before. Each step links to the full section.
+
+1. **Install** the line that matches your site: `dotnet add package Umbraco.Community.Automate.Jira --version 18.*` (or `17.*` on Umbraco 17). See [Install](#install).
+2. **Make a Jira token.** Use a service account that is not a Jira admin, and create a scoped API token with `read:jira-work`, `write:jira-work` and `read:jira-user` that expires in 90 days or less. See [Service account requirements](#service-account-requirements).
+3. **Store it in configuration** under a credential name such as `agency`, as environment variables or secrets, never in a committed `appsettings.json`:
+   ```
+   Umbraco__Automate__Jira__Credentials__agency__Email
+   Umbraco__Automate__Jira__Credentials__agency__ApiToken
+   ```
+   See [Credentials](#credentials).
+4. **Add the connection.** In Automation, Connections, create a **Jira Cloud (API token)** connection with your site URL and the credential name, then click **Test connection**. It shows the Cloud ID that a scoped token needs. See [The connection](#the-connection).
+5. **Add a workspace** with an API user as its service account and the Jira connection allowed. For Umbraco Forms triggers, give the API user's group the **Forms** section.
+6. **Build an automation:** a trigger, then **Create Jira issue**. Set **Error behaviour** to **Retry** and set a **Dedupe key**, for example `${ trigger.recordUniqueId }` for a form. See [Recipes](#recipes) and [Duplicate protection](#duplicate-protection).
+
+Starting automations from Jira (webhooks) is optional: see [Inbound webhooks](#inbound-webhooks).
 
 ## Contents
 
+- [Quick start](#quick-start)
 - [Install](#install)
 - [Credentials](#credentials)
 - [What the package does and does not protect](#what-the-package-does-and-does-not-protect)
