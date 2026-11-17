@@ -1,4 +1,4 @@
-// credential-helper-contract: 1.0.2
+// credential-helper-contract: 1.0.3
 global using Umbraco.Community.Automate.Jira.Credentials;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
