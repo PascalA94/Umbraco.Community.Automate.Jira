@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spike-only: run one isolation case on a site and print a one-line summary.
-# Usage: run-case.sh <17|18> <case> <evidence-prefix>
+# Usage: run-case.sh <17|18|19> <case> <evidence-prefix>
 set -u
 site=$1; case=$2; tag=$3
 out="evidence/$tag-site$site-$case.json"

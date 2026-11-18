@@ -1,11 +1,13 @@
 <Project>
   <!--
-    One codebase, two Umbraco Automate lines. -p:AutomateMajor=17|18 picks the dependency set,
-    the closed version ranges, the package version and the AUTOMATE_17 / AUTOMATE_18 constant.
+    One codebase, three Umbraco Automate lines. -p:AutomateMajor=17|18|19 picks the dependency set,
+    the closed version ranges, the package version and the AUTOMATE_17 / AUTOMATE_18 / AUTOMATE_19 constant.
+    Lines 17 and 18 target net10.0; line 19 targets net11.0 (Umbraco 19 does not restore on net10.0, NU1202).
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <AutomateMajor Condition="'$(AutomateMajor)' == ''">18</AutomateMajor>
+    <TargetFramework Condition="'$(AutomateMajor)' != '19'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(AutomateMajor)' == '19'">net11.0</TargetFramework>
     <AutomateFloat Condition="'$(AutomateFloat)' == ''">false</AutomateFloat>
   </PropertyGroup>
 
@@ -16,6 +18,20 @@
     <UmbracoCmsRange>[18.3.0, 19.0.0)</UmbracoCmsRange>
     <!-- CMS 18.3.0 is built against Markdig 1.4.0; 1.5.1 is HQ's pin (plan Global Constraints). -->
     <MarkdigRange>[1.5.1, 2.0.0)</MarkdigRange>
+    <IntegrationTestSdkVersion>18.10.1</IntegrationTestSdkVersion>
+    <IntegrationMessagePackVersion>3.1.11</IntegrationMessagePackVersion>
+  </PropertyGroup>
+  <!-- Release candidate line: Umbraco names its prerelease 19.0.0-rc1. Move the floors to 19.0.0 at stable. -->
+  <PropertyGroup Condition="'$(AutomateMajor)' == '19'">
+    <AutomateVersion>19.0.0-rc1</AutomateVersion>
+    <AutomateRange>[19.0.0-rc1, 20.0.0)</AutomateRange>
+    <UmbracoCmsVersion>19.0.0-rc1</UmbracoCmsVersion>
+    <UmbracoCmsRange>[19.0.0-rc1, 20.0.0)</UmbracoCmsRange>
+    <!-- CMS 19.0.0-rc1 depends on Markdig 1.5.1, the same as 18. -->
+    <MarkdigRange>[1.5.1, 2.0.0)</MarkdigRange>
+    <!-- Umbraco.Cms.Tests.Integration 19.0.0-rc1 needs Test.Sdk 18.11.0 or later (NU1605) and MessagePack 3.1.12. -->
+    <IntegrationTestSdkVersion>18.11.0</IntegrationTestSdkVersion>
+    <IntegrationMessagePackVersion>3.1.12</IntegrationMessagePackVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(AutomateMajor)' == '17'">
     <AutomateVersion>17.5.1</AutomateVersion>
@@ -25,11 +41,13 @@
     <!-- CMS 17.8.0 is built against Markdig 0.45.0. Forcing 1.x onto a v17 site would swap a major
          version under the CMS's own Markdown rendering, so the 17 line stays on the CMS's 0.x line. -->
     <MarkdigRange>[0.45.0, 1.0.0)</MarkdigRange>
+    <IntegrationTestSdkVersion>18.10.1</IntegrationTestSdkVersion>
+    <IntegrationMessagePackVersion>3.1.11</IntegrationMessagePackVersion>
   </PropertyGroup>
 
   <!-- Fails fast: an unknown line would otherwise restore with empty version ranges. -->
-  <Target Name="ValidateAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18'">
-    <Error Text="AutomateMajor must be 17 or 18 (was '$(AutomateMajor)')." />
+  <Target Name="ValidateAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18' and '$(AutomateMajor)' != '19'">
+    <Error Text="AutomateMajor must be 17, 18 or 19 (was '$(AutomateMajor)')." />
   </Target>
 
   <!-- Latest leg of CI: floating $(AutomateMajor).* so a new Automate release is exercised without a PR. Never packed. -->
@@ -40,6 +58,11 @@
   <PropertyGroup Condition="'$(AutomateFloat)' == 'true'">
     <AutomateVersionSpec>$(AutomateMajor).*</AutomateVersionSpec>
     <UmbracoCmsVersionSpec>$(AutomateMajor).*</UmbracoCmsVersionSpec>
+  </PropertyGroup>
+  <!-- 19.* matches no prerelease (NU1102 while only 19.0.0-rc1 exists), so the 19 line floats 19.*-*. Remove at 19.0.0 stable. -->
+  <PropertyGroup Condition="'$(AutomateFloat)' == 'true' and '$(AutomateMajor)' == '19'">
+    <AutomateVersionSpec>$(AutomateMajor).*-*</AutomateVersionSpec>
+    <UmbracoCmsVersionSpec>$(AutomateMajor).*-*</UmbracoCmsVersionSpec>
   </PropertyGroup>
 
   <!-- Version: <line>.<minor>.<patch>; pre-releases pass -p:VersionSuffix=beta.1 -->
@@ -74,6 +97,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>logo-128.png</PackageIcon>
     <PackageTags>umbraco umbraco-marketplace umbraco-automate jira atlassian</PackageTags>
+    <!-- The Marketplace does not list prerelease-only packages, so the 19 release candidate carries no Marketplace tag. Restore it at 19.0.0 stable. -->
+    <PackageTags Condition="'$(AutomateMajor)' == '19'">$(PackageTags.Replace('umbraco-marketplace ', ''))</PackageTags>
     <NeutralLanguage>en-GB</NeutralLanguage>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>

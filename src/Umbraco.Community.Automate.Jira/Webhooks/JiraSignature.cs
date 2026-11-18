@@ -7,7 +7,7 @@ namespace Umbraco.Community.Automate.Jira.Webhooks;
 /// Parses and checks Jira's <c>X-Hub-Signature</c> (HMAC-SHA256 over the raw body, design 6.5).
 /// </summary>
 /// <remarks>
-/// The signature is compared only with <see cref="CryptographicOperations.FixedTimeEquals"/>. A banned-API
+/// The signature is compared only with <see cref="CryptographicOperations.FixedTimeEquals(ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>. A banned-API
 /// analyser (BannedSymbols.txt) and an IL scan (<c>ArchitectureTests</c>) keep it that way (plan P5).
 /// </remarks>
 internal static class JiraSignature

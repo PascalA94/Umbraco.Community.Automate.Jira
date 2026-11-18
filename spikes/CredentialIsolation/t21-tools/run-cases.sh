@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# usage: run-cases.sh <17|18> <tag> <case...>
+# usage: run-cases.sh <17|18|19> <tag> <case...>
 S=$(cd "$(dirname "$0")" && pwd); L=$1; TAG=$2; shift 2
 cd $S/work/CredentialIsolation; : > echo.log
 for c in "$@"; do ./run-case.sh $L $c $TAG | python3 -I $S/redact.py $S/sentinel.txt | cut -c1-300; done

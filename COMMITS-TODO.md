@@ -629,3 +629,155 @@ git add -A
 git commit -m "test: credential-helper-contract 1.0.3 (I07 pin scope for Automate 19)"
 git log -1 --stat
 ```
+
+## Umbraco 19, Part 5b: Jira 19 line (2026-11-18, branch `feat/umbraco-19`, uncommitted)
+
+Source: the Umbraco 19 plan for this package, Part 5b. Base `main` at `4425ea5` (5a squash merge, tagged `credential-helper-1.0.3`).
+
+- Preconditions: `credential-helper-1.0.3` on origin at `4425ea5`. Newest 19 prerelease is still `19.0.0-rc1` on NuGet (`Umbraco.Cms.Core`, `Umbraco.Automate.Core`) and npm (`@umbraco-cms/backoffice`, `latest` 17.8.2). MessagePack 3.1.12 and Cryptography.Xml 11.0.0 still the newest stable. No client (S7 n/a). No repo `CLAUDE.md`.
+- Ruling: this file is the ledger for 5b (the user's rule), not a separate workspace. Cost if wrong: none.
+- Task 5 (build switch, TFM, floors, pins, locks): done.
+  - TFM pair placed after the `AutomateMajor` default in the first group (S2: the condition must see the value). 19 block, validator (`-p:AutomateMajor=20` fails with the new message), `19.*-*` float block, `eng/lines.txt` 19, conditional MessagePack and Cryptography.Xml pins, `IntegrationTestSdkVersion` / `IntegrationMessagePackVersion` per line, `global.json` `latestMajor`.
+  - Locks: four `packages.19.lock.json`, no `net10.0` key in them; 17 and 18 locks unchanged (0 changed), `--locked-mode` passes on 17, 18 and 19. `vulnerable-check.sh 19`: none found.
+  - Build 19: 4 errors, all in `FindContentByKeyAction.cs` (Examine). Matches. 18 build passes.
+  - Drift: before `global.json` moved to `latestMajor`, PATH `dotnet` was the 10 SDK, and the 11 SDK refused the repo (`Requested SDK version: 10.0.100`). Expected.
+- Task 6 (Dropdown.Single, BuildSwitchTests, CS0419): done. `Actions/EditorAliases.cs` (`SingleDropdown`, `#if AUTOMATE_19`), used at both settings. `AUTOMATE_19` arm in `BuildSwitchTests`. Long cref in `JiraSignature.cs`. 18 builds; 19 still had only the Task 5 errors.
+- Task 7 (FindContentByKeyAction on Umbraco Search): done.
+  - Split as designed: main file keeps `ExecuteAsync`, recheck, duplicate rule and authoriser; `FindContentByKeyAction.Examine.cs` (`#if !AUTOMATE_19`, code moved unchanged, `MaxCandidates` stays there) and `FindContentByKeyAction.Search.cs` (`#if AUTOMATE_19`, `MaxHitsExamined` 2000, `PageSize` 100).
+  - Ruling: the "rebuild the Umbraco Search indexes" sentence goes into the action description on 19 only, through a per-partial `ActionDescription` constant, so the 17 and 18 description stays byte for byte. Cost if wrong: one sentence missing on 17/18, where it does not apply.
+  - Ruling: the guide's tokeniser (`[^a-z0-9]+`) misses keys with an underscore in the project key (`SUP_X-17`, allowed by `JiraIdentifiers`): the analyser keeps `sup_x` as one token, so a separate `x` filter never matches. Tokens now split on `[^a-z0-9_]+` and a token with `_` contributes only the part before it (a prefix of the indexed token whether or not the analyser splits on `_`). Pinned by `Search_UnderscoreKey_FiltersOnThePartBeforeTheUnderscore` (unit) and an integration test (Task 8). Cost if wrong: a looser candidate set for underscore keys only; the recheck decides.
+  - Tests: `FindContentByKeyActionTests.cs` wrapped in `#if !AUTOMATE_19`; new `FindContentByKeyActionSearchTests.cs` (the 15 ported tests, the 7 new ones from the guide, plus the underscore test; injection theory gains `SUP-1?` and `SUP-1\`). Mutation checks: the guide's tokeniser fails the underscore test; returning a partial list past the ceiling fails `Search_AboveCeiling_FailsClosed`.
+  - Results: FindContentByKey on 19 `Passed: 38`; on 17 and 18 `Passed: 34` (same as before the move). Full unit project: 17 `931`, 18 `931` (unchanged), 19 `935`.
+- Task 8 (integration harness on 19): done.
+  - `SearchTestDoubles.cs` (`#if AUTOMATE_19`, the three internal doubles copied from the spike's working copies of Umbraco's `Testing/Search` types). `JiraContentTestBase` derives from `UmbracoIntegrationTest` on 19 with `AddSearchCore` / `AddExamineSearchProvider` and the three `AddUnique` swaps; `WaitForUnattendedMigrations` unchanged. 17/18 code sits in the `#else` arms, unchanged.
+  - Drift: the Lucene folder is `tests/.../IntegrationTests/umbraco/Data/TEMP/ExamineIndexes` (the project folder, the harness's content root), not under the test output folder. `GlobalSetUp.cs` on 19 walks up from the test directory to the folder holding `*.IntegrationTests.csproj` and deletes it in a `[OneTimeSetUp]`. Its creation time after a run is the run's start, so the wipe hits.
+  - Ruling: `IndexAsync` on 19 waits for this node's key to be listed (or, once trashed, gone) under the action's own `ContentTypeId` + negated `PathIds` filters, instead of the guide's count per type. Same 100 x 100 ms and `TimeoutException`. A key is exact where a count needs the test to track saves per type and can be fooled by a stale document. Cost if wrong: none seen; 13/13 twice.
+  - Tests on 19: `InternalIndex_IndexesTextstringUnderAlias` replaced by `DraftIndex_ProposesTextstringCandidate`; added `PrefixKey_OverMatches_ButOnlyTheExactNodeIsReturned` (asserts the index really proposes 3, then the action returns only the exact node) and `UnderscoreKey_IsFound` (asserts `TextFilter("x")` finds nothing for `SUP_X-17`, then the action finds it). With the guide's tokeniser the underscore test fails on the real index (`Expected: Success, But was: Failed`): the Task 7 ruling is confirmed against real analysis.
+  - Results: 19 `Passed: 13` on two consecutive runs; 17 `Passed: 11`, 18 `Passed: 11` (unchanged). `HangProbeTests` stays explicit and was not run. NUnit 3.14 restored and ran on 19.
+- Task 9 (demo, spikes, S7 prep): done.
+  - Demo props: conditional TFM, 19 block (CMS, Automate, Forms, Forms.Automate all `19.0.0-rc1`, confirmed on NuGet today), validator, `obj19/bin19` excludes, `JiraPackageVersion` `19.0.0-rc.1` on 19. Demo builds on 19: 0 errors. Drift: `obj19/` and `bin19/` were not git-ignored; added to the TestSite `.gitignore` beside 17 and 18.
+  - Spikes: `Spike.CredentialStore` conditional TFM and a 19 `ItemGroup`; `site19` = the 15 tracked files of `site18`, csproj net11.0, packages 19.0.0-rc1, Kestrel 5119/5419. The appsettings files were copied and port-patched with sed without being displayed (hard rule); a diff check shows the dev file differs from site18's only in the two ports and `appsettings.json` is identical.
+  - Ruling: `Spike.CredentialStore` is shared with site18 and has one `obj/`, and restore ignores a project reference's `AdditionalProperties`, so site19 cannot select 19 by itself (`NETSDK1005`, no net11.0 target). `t21-tools/start-site.sh` passes `-p:AutomateMajor=19` for line 19 only; 17 and 18 run the same command as before. With it, site19 and the store build on 19 (not started). Cost if wrong: Pascal starts site19 with the 10 SDK or without the property and gets a restore error, not a wrong result.
+  - Usage lines: `run-case.sh`, `run-cases.sh`, `start-site.sh` now say `<17|18|19>`. Case names re-checked against `SpikeRunController.cs:43-52`: they match the guide's list.
+  - `docs/spikes.md`: "Automate 19 gate" section with an empty row for Pascal. `scripts/docs-guard.sh` prints `docs-guard: ok`, exit 0 (the guide expected no output; the script always prints ok).
+- Task 10 (CI build-test and osv): done.
+  - `build-test.yml`: `setup-dotnet` takes `dotnet-version: ${{ matrix.line == '19' && '11.x' || '10.x' }}` instead of `global-json-file` (cache settings kept); hang-diagnostics upload path `bin/Debug/net*/hang-diagnostics/`; osv job has 12 `--lockfile` lines (the four 19 locks added beside 17 and 18 per project). dotnet-stack install left as is (step 4: the first CI run shows whether it attaches to a net11 host). Header comment already says `<line>`, unchanged. `codeql.yml` unchanged (step 6).
+  - `.github/CONTRIBUTING.md`: three lines on `main`, SDK per line and how to run 19 alone, the 19 demo command, required checks now name `build-test (19, floor)` and `build-test (19, latest)`, and the Releases section describes both tag groups (v18 packs 17 and 18, v19 packs 19 only; a 19 RC is a prerelease, never Latest). No machine paths in it (public repo).
+  - actionlint on the three changed workflows: no findings. YAML parses.
+- Task 11 (publish, tag scheme, release-checks): done.
+  - `publish.yml`: the tag's group decides the lines (below 19 for v18, exactly 19 for v19; the major must be its group's newest line), outputs `lines`, `expected` and `sdk`; `setup-dotnet` moved after "Read the tag" with `dotnet-version: ${{ steps.tag.outputs.sdk }}`; a count guard after packing (`expected` nupkgs, else fail); `--skip-duplicate` on the push. Trigger `v*`, file name, environment `nuget`, `id-token` on the publish job only: unchanged. Publish job SDK `10.x` unchanged.
+  - `release-checks.yml`: SDK per line on the contract and SQL Server jobs (same expression). No matrix edit.
+  - CHANGELOG `## 19.0.0-rc.1` heading deferred to Task 13 step 9, as the guide says.
+  - Tag parser dry run (step 2): the real `run:` text was cut out of `publish.yml` and run with each tag. Matches the guide's expected column; paste this table into the PR description:
+
+| Tag | lines | expected | sdk | result |
+|---|---|---|---|---|
+| `v18.0.1` | 17 18 | 2 | 10.0 | ok |
+| `v18.1.0-rc.1` | 17 18 | 2 | 10.0 | ok |
+| `v19.0.0-rc.1` | 19 | 1 | 11.0 | ok |
+| `v19.0.0` | 19 | 1 | 11.0 | ok |
+| `v17.0.0` | - | - | - | rejected: Tag v17.0.0 must start with the newest line of its group (v18 for 17 and 18, v19 for 19) |
+| `v20.0.0` | - | - | - | rejected: Tag v20.0.0 must start with the newest line of its group (v18 for 17 and 18, v19 for 19) |
+| `v18.0.0-beta.1` | 17 18 | 2 | 10.0 | ok |
+| `v019.0.0` | - | - | - | rejected: Tag v019.0.0 must start with the newest line of its group (v18 for 17 and 18, v19 for 19) |
+| `v19.0` | - | - | - | rejected: Tag v19.0 is not v<line>.<minor>.<patch>[-<suffix>] |
+| `v19.0.0-rc.1;id` | - | - | - | rejected: Tag v19.0.0-rc.1;id is not v<line>.<minor>.<patch>[-<suffix>] |
+| `$(id)` | - | - | - | rejected: Tag $(id) is not v<line>.<minor>.<patch>[-<suffix>] |
+
+- Task 12 (README, CHANGELOG, description, RC label): done.
+  - README: Requires line adds the 19 RC on .NET 11, the label, and the rebuild-indexes sentence; Quick start names `19.0.0-rc.*`; table row `19.x (release candidate)`; third install line plus a note that a plain install picks the newest stable line; "One codebase builds all three"; Find content section says Examine on 17/18 and Umbraco Search on 19, the rebuild, the prefix over-match and the 2000 ceiling; the duplicate-protection residual names both indexes.
+  - Ruling: the guide's install note says a prerelease "needs `--prerelease`". Naming the version is enough; `--prerelease` only matters without `--version`. The README says that instead. Cost if wrong: none, the command shown is the same.
+  - Ruling: the 19 description appends the S11 label text exactly (`Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable.`), not the guide step 4 wording, so the label reads the same everywhere. Cost if wrong: one sentence's wording.
+  - CHANGELOG `:3` updated; `## 19.0.0-rc.1` deferred to Task 13 step 9. `PackageTags` drops `umbraco-marketplace` on 19 only.
+  - Checks: `ReadmeTests` on 18 `Passed: 3`. 19 pack (to a temporary folder, not `out/`): one `Umbraco.Community.Automate.Jira.19.0.0-rc.1.nupkg`, `check-packed-readme: ok`, deps `[19.0.0-rc1, 20.0.0)` for Automate.Core, Cms.Core and Cms.Infrastructure, `<tags>umbraco umbraco-automate jira atlassian</tags>`, description ends with the label, `lib/net11.0`, 0 lock files. 17 and 18 packs: deps and tags identical to the existing `out/` packs, description identical to `main`'s csproj text (the `out/` packs are an older beta with an older description), `lib/net10.0`.
+  - `.github/CONTRIBUTING.md` (step 5) was done with Task 10.
+- Task 13 (verify, acceptance, security gate): steps 1 to 6 done.
+  - Step 1: full solution on 17 and 18 (PATH `dotnet`): Tests `931`, IntegrationTests `11`, ContractTests 2 live tests skipped (no sandbox env), on both. Same as `main`.
+  - Step 2: full solution on 19 (11 SDK): Tests `935`, IntegrationTests `13`, ContractTests skipped. `CredentialHelperContract` on 19 `Passed: 60` with `Automate 19.0.0; scanned` in the detailed output. Extra legs: 18 float `Passed: 60` (Automate 18.6.0); 19 float (`19.*-*`) full solution `935` + `13`. No float lock file shows in `git status`.
+  - Step 3: `--locked-mode` restore exits 0 on 17, 18 (PATH `dotnet`) and 19 (11 SDK); the only lock changes are the four new `packages.19.lock.json`.
+  - Step 4: `vulnerable-check.sh` "none found" on 17, 18 and 19 (output read, not only the exit code).
+  - Step 5: see Task 12 (19 nupkg checks).
+  - Step 6: no en or em dash in any added line. One came in with the `site18.csproj` copy (`site19.csproj:23`); replaced with a colon. `site18` keeps its own.
+- Reviews (fresh context): qa-reviewer (sonnet) pass with findings; security-analyst (opus, `security-audit` skill, D11 gate) approve with conditions, no Critical.
+  - Fixed, Important (QA 1): stop-word project keys (`IT-5`, `BE-12`, `A-1`) were never found on 19, because the analyser drops English stop words and the filter on them matched nothing. RED on the real index (3 of 3 failed), then `KeyTokens` leaves stop words out (a token with `_` stays). Tests: `StopWordProjectKey_IsFound` (integration, 3 cases) and `Search_StopWordProjectKey_IsNotAFilter` (unit, 5 cases).
+  - Fixed, Important (QA 2, security F2 Medium): one `GetByIds(IEnumerable<Guid>)` batch load per page instead of a `GetById` per hit, and the first page's total over 2000 fails closed before anything loads. Tests: `OneMatch_ReturnsTheNode` checks one batch and no single loads; `Search_AboveCeiling_FailsClosed` (2001 and 5000: one search, no load); `Search_AtCeiling_ExaminesEveryPage` (exactly 2000: 20 pages, success). Mutation: removing the first-page check fails both ceiling cases.
+  - Security F1 (Medium, protected content hidden from the duplicate rule): disproved by test on 19.0.0-rc1. `ProtectedHolder_IsFound` asserts the node is protected and the action finds it; `ProtectedDuplicate_StillFails` lists both keys. A probe showed the draft index returns the protected node with and without an `AccessContext`. Ruling: the action passes `AccessContext.BypassProtection()` anyway, pinned by `Search_UsesDraftIndexAndDefaultCulture` (RED first), so a provider change in a later RC cannot hide a duplicate. Cost if wrong: none; the match still goes through the authoriser.
+  - Ruling (QA 3, security F4 Low, CI SDK): setup-dotnet at the pinned SHA maps `rollForward: latestFeature` to `10.0` (newest 10.0 SDK) and `latestMajor` to no version at all (read in its `getVersionFromGlobalJson`). So 17 and 18 were never on an exact SDK, and the D7 global.json change would have left CodeQL with no SDK. Every workflow now names `10.0` for 17 and 18 and `11.0` for 19 (publish's push job keeps `10.x`), and `codeql.yml` names `10.0`. That is the same SDK 17 and 18 got before. Exact pinning per line (security F4) is a separate decision for you. Cost if wrong: a new 10.0 SDK patch reaches CI, as it did before this change.
+  - Ruling (QA, COMMITS-TODO tracked in a public repo): it stays in the milestone commit as you asked; the two local-path mentions in the 5b section are scrubbed. Cost if wrong: unstage it.
+  - Fix fallout: `ArchitectureTests.NoMutableStaticFields` rejected the stop-word `HashSet`; now a `FrozenSet`.
+  - Deferred minors: (1) the 2000-ceiling message and README say "use a longer key", but the key comes from Jira; better "narrow the content types" (QA). (2) No unit test for the recheck's `Trashed` and content-type guards on 19, or a null default language (QA). (3) `--skip-duplicate` makes a re-run after a partial publish report green (QA, security F6; accepted, nuget.org versions are immutable). (4) `IndexAsync` on 19 waits without a culture while the action searches in the default culture (QA; invariant fixtures, 18/18 twice). (5) Paging has no stable sort or dedupe by key, so a save during a 100+ hit search could shift a page (security F3, Low). (6) I07 scans only `Umbraco.Automate.*`; `Umbraco.Forms.Automate` 19 has no configuration reads by string scan; `Umbraco.Deploy.Automate` 19 not assessed, no build in the cache (security F5, Low; escalated as UNKNOWN). (7) Two-person review is not enforced on the `nuget` environment (single maintainer, security F6).
+- Task 13 steps 7 to 9: done.
+  - Step 8: security gate result above. Dependency audit by the analyst: OSV API over the 271 package versions in the four 19 lock files, 0 advisories, with a positive control that did return hits.
+  - Step 9: `## 19.0.0-rc.1` heading with the RC label and the change list, above `## Unreleased`. `grep -qxF "## 19.0.0-rc.1" CHANGELOG.md` passes; `docs-guard: ok`.
+  - Final fresh run after every fix: locked restore 17, 18, 19 exit 0; full solution 17 `931` + `11`, 18 `931` + `11`, 19 `942` + `18` (twice for the integration suite on the final search code paths, once after the `FrozenSet` swap); vulnerable-check none on all three; 19 pack one nupkg, README ok, tags without `umbraco-marketplace`, deps `[19.0.0-rc1, 20.0.0)`; actionlint clean; no dash in added lines; no 17, 18 or float lock change.
+- Acceptance checklist (guide Task 13 step 7):
+  - [x] `credential-helper-1.0.3` tag is on the public remote (`4425ea5`).
+  - [x] Contract suites 60 passed on 17, 18, 19, and on 18 latest (Automate 18.6.0).
+  - [x] Integration on 17 (11), 18 (11) and 19 (18: the 11 ported, 1 replaced, plus prefix, underscore, 3 stop-word and 2 protected), twice on 19.
+  - [x] Unit counts on 17 and 18 equal `main` (931).
+  - [ ] `packages.19.lock.json` x4 committed: generated and locked-mode clean; committing is yours.
+  - [x] Pins: 19 has MessagePack 3.1.12 and Cryptography.Xml 11.0.0; 17 and 18 unchanged.
+  - [ ] Tag parser table in the PR description: the table is below; pasting it is yours.
+  - [x] README, CHANGELOG and the 19 csproj description carry the RC label.
+  - [x] No file outside the repo was changed except the plan's own checklist and Learnings (`PLAN.md`). The contract doc was not touched in 5b.
+
+### Paused here (2026-11-18)
+
+Part 5b is built, reviewed and verified locally, uncommitted on `feat/umbraco-19`. CI has not run any of it. No RC tag until the S7 gate, the 19 CI legs and SQL Server (19) are green.
+
+Tag parser dry run (paste into the PR description; SDK column after the review fix):
+
+| Tag | lines | expected | sdk | result |
+|---|---|---|---|---|
+| `v18.0.1` | 17 18 | 2 | 10.0 | ok |
+| `v18.1.0-rc.1` | 17 18 | 2 | 10.0 | ok |
+| `v19.0.0-rc.1` | 19 | 1 | 11.0 | ok |
+| `v19.0.0` | 19 | 1 | 11.0 | ok |
+| `v17.0.0` | - | - | - | rejected: must start with the newest line of its group |
+| `v20.0.0` | - | - | - | rejected: must start with the newest line of its group |
+| `v18.0.0-beta.1` | 17 18 | 2 | 10.0 | ok |
+| `v019.0.0` | - | - | - | rejected: must start with the newest line of its group |
+| `v19.0` | - | - | - | rejected: not v<line>.<minor>.<patch>[-<suffix>] |
+| `v19.0.0-rc.1;id` | - | - | - | rejected: not v<line>.<minor>.<patch>[-<suffix>] |
+| `$(id)` | - | - | - | rejected: not v<line>.<minor>.<patch>[-<suffix>] |
+
+**Not verified by the build session (Pascal):**
+- **S7 credential isolation gate on a 19 site** (D11, RC blocker). Stage first: copy `spikes/CredentialIsolation/t21-tools` to a folder outside the repo, and beside the scripts create `sentinel.txt` (one fresh random line), `varmarker.txt` (another), `client-secret.txt`, `cnt.py` (a sentinel count over `echo.log`) and `work/CredentialIsolation` (a copy of `spikes/CredentialIsolation`, which now holds `site19`). Have the .NET 11 SDK first on `PATH` and a dev cert (`dotnet dev-certs https`). Then, from the staging folder:
+  - `bash start-site.sh 19` in one terminal (it passes `-p:AutomateMajor=19` itself), `dotnet run --project work/CredentialIsolation/EchoListener` in another (port 5099).
+  - `bash run-cases.sh 19 t19 pkg-url-embedded pkg-header-whole pkg-header-embedded pkg-url-whole control-secrets-header control-secrets-url pkg-log-whole pkg-log-embedded var-log-whole read-credential`. Expected: package sentinel count 0 in `echo.log` and in every `evidence/t19-site19-*.json`; the control sentinel reaches the listener.
+  - Step 4: stop the site, `bash start-site.sh 19 widen`, rerun the same `run-cases.sh` line. Expected: the package sentinel reaches the listener for the header cases, and `read-credential` reports a refusal naming `Umbraco:Automate`.
+  - Step 7, from the repo root: `python3 spikes/CredentialIsolation/scan-surfaces.py https://localhost:5419 <site19 dir> <client-secret-file> <sentinel>`. Expected: zero hits. If `fetch-swagger.sh 5419 19` prints `token length 0`, switch it to the cookie login (00-shared S5) and note it in `docs/spikes.md`.
+  - Fill the "Automate 19 gate" row in `docs/spikes.md` with what you saw.
+- **First CI run of the 19 legs** on the PR: `build-test (19, floor)` and `build-test (19, latest)` green. Unknowns it settles: `dotnet-version: 11.0` resolving on hosted runners (if "not found", add `dotnet-quality: ga`), dotnet-stack attaching to a net11 test host (if the 19 leg fails there, run that install for 17 and 18 only), the `net*` hang-diagnostics glob.
+- **SQL Server integration on 19** (D3, required for the RC): `gh workflow run release-checks.yml --ref feat/umbraco-19`, then `gh run list --workflow release-checks.yml --limit 1` and `gh run watch <run-id> --exit-status`. Expected: `integration on SQL Server (19)` green, and the 17 and 18 legs green.
+- **Live Jira contract tests on 19**: the `contract (19)` job in that same run (approve `jira-sandbox`). Expected: `total="2" executed="2" passed="2"`.
+- **e2e**: this repo has none. Nothing to run.
+- **Search on a real 19 site**: create a Ticket document type with a Textstring `jiraKey`, save `SUP-17` and `SUP-170` and an `IT-5`, rebuild the Umbraco Search indexes, run Find content by Jira key from an automation for `SUP-17` and `IT-5`. Expected: each returns its node; `SUP-170` does not change the result. Not tested anywhere: culture-variant document types holding the invariant key, and indexing lag right after a save.
+- **site19 appsettings**: `spikes/CredentialIsolation/site19/appsettings.json` and `appsettings.Development.json` are new, not ignored, and were copied from site18 without being read (only the Kestrel ports changed). Look at both before `git add -A` (security F7).
+- **Exact SDK pinning per line** (security F4, Low): your call; today the workflows float within the 10.0 and 11.0 bands.
+- **Umbraco.Deploy.Automate 19**: not assessed for I07 scope (no 19 build available here).
+
+**Pascal's release steps (5b):**
+1. Run the Milestone commit block below, then `git push -u origin feat/umbraco-19` and `gh pr create --fill --base main`. Paste the tag parser table into the PR description.
+2. Wait for the first PR run. Add `build-test (19, floor)` and `build-test (19, latest)` to the `main` ruleset (Settings, Rules); the existing required checks stay.
+3. Run the S7 gate and `gh workflow run release-checks.yml --ref feat/umbraco-19` (SQL Server 19, contract 19, 17 and 18 legs).
+4. Squash merge, then tag the merge commit and push only the tag:
+   ```bash
+   git switch main && git pull --ff-only
+   git tag v19.0.0-rc.1
+   git push origin v19.0.0-rc.1
+   ```
+5. Approve the `nuget` deployment. Expected: one package, `Umbraco.Community.Automate.Jira 19.0.0-rc.1`.
+6. `gh release create v19.0.0-rc.1 --prerelease --title "19.0.0-rc.1" --notes "Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable."`
+7. `curl -s https://api.nuget.org/v3-flatcontainer/umbraco.community.automate.jira/index.json` lists `19.0.0-rc.1` beside `18.0.0` and `17.0.0`. No Marketplace tag on the RC.
+8. Then DeployHooks can start (it also needs `10.0`/`11.0` in its workflows after the same global.json change).
+
+**Milestone commit:**
+```bash
+cd ~/Projects/Umbraco.Community.Automate.Jira
+git switch feat/umbraco-19
+git status --short   # expect 40 entries: ~30 modified, plus new: 4 packages.19.lock.json, EditorAliases.cs, FindContentByKeyAction.Examine.cs and .Search.cs, FindContentByKeyActionSearchTests.cs, SearchTestDoubles.cs, spikes/CredentialIsolation/site19/. Check: no secrets, no .claude/settings.local.json, no review docs, no float lock files; open site19/appsettings.json and appsettings.Development.json by eye first.
+git add -A
+git commit -m "feat: Umbraco 19 line (Automate 19.0.0-rc1, Umbraco Search for Find content by key)"
+git log -1 --stat
+```

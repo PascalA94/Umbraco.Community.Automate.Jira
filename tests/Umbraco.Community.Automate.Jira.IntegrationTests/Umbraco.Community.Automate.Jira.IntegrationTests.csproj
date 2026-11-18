@@ -8,8 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Umbraco.Cms.Tests.Integration requires 18.10.1 or later (NU1605 against the xUnit project's 17.13.0). -->
-    <PackageReference Include="Microsoft.NET.Test.Sdk" VersionOverride="18.10.1" />
+    <!-- Umbraco.Cms.Tests.Integration requires 18.10.1 or later on 17 and 18, 18.11.0 on 19 (NU1605 against the
+         xUnit project's 17.13.0). The value per line is in Directory.Build.props. -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" VersionOverride="$(IntegrationTestSdkVersion)" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" PrivateAssets="all" />
     <PackageReference Include="Umbraco.Cms.Tests.Integration" />
@@ -18,7 +19,7 @@
     <PackageReference Include="OpenTelemetry.Api" />
     <!-- The root transitive pins sit below what Umbraco.Cms.Tests.Integration needs (NU1109), so this test-only
          project raises them to the harness's own minimums. -->
-    <PackageReference Include="MessagePack" VersionOverride="3.1.11" />
+    <PackageReference Include="MessagePack" VersionOverride="$(IntegrationMessagePackVersion)" />
     <PackageReference Include="Moq" VersionOverride="4.21.0" />
   </ItemGroup>
 

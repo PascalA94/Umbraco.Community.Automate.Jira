@@ -11,4 +11,29 @@ using NUnit.Framework;
 [SetUpFixture]
 public sealed class JiraIntegrationGlobalSetUp : GlobalSetupTeardown
 {
+#if AUTOMATE_19
+    // Umbraco Search's Lucene directory (umbraco/Data/TEMP/ExamineIndexes under the project folder, the harness's
+    // content root) survives between runs, while each run starts a fresh database with new keys. A second run then
+    // got stale documents back from Umb_Content. Wiping it before any host starts makes every run index from empty.
+    [OneTimeSetUp]
+    public void DeleteStaleSearchIndexes()
+    {
+        var folder = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+        while (folder is not null && folder.GetFiles("*.IntegrationTests.csproj").Length == 0)
+        {
+            folder = folder.Parent;
+        }
+
+        if (folder is null)
+        {
+            throw new InvalidOperationException("The integration test project folder was not found above " + TestContext.CurrentContext.TestDirectory);
+        }
+
+        var indexes = Path.Combine(folder.FullName, "umbraco", "Data", "TEMP", "ExamineIndexes");
+        if (Directory.Exists(indexes))
+        {
+            Directory.Delete(indexes, recursive: true);
+        }
+    }
+#endif
 }

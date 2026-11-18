@@ -4,15 +4,19 @@
     Directory.Build.props, so it gets no lock files, documentation file or pack metadata, and it can
     never end up in the package's pack output.
 
-    One project boots on both Automate lines: -p:AutomateMajor=17|18 (default 18) picks Umbraco CMS and
+    One project boots on every Automate line: -p:AutomateMajor=17|18|19 (default 18) picks Umbraco CMS and
     Automate. The package project reference receives the same global property, so the package is built
-    for the same line. Per-line obj and bin folders keep the two restores from overwriting each other.
+    for the same line. Per-line obj and bin folders keep the restores from overwriting each other.
+    Line 19 targets net11.0 and needs the .NET 11 SDK.
   -->
   <PropertyGroup>
     <AutomateMajor Condition="'$(AutomateMajor)' == ''">18</AutomateMajor>
     <!-- Opt-in: -p:JiraPackageSource=nuget consumes the published beta instead of src/ (see the TestSite csproj). -->
+    <!-- No 19.0.0-beta.1 exists on NuGet; the 19 line's first published version is the release candidate. -->
+    <JiraPackageVersion Condition="'$(JiraPackageVersion)' == '' and '$(AutomateMajor)' == '19'">19.0.0-rc.1</JiraPackageVersion>
     <JiraPackageVersion Condition="'$(JiraPackageVersion)' == ''">$(AutomateMajor).0.0-beta.1</JiraPackageVersion>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework Condition="'$(AutomateMajor)' != '19'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(AutomateMajor)' == '19'">net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -20,10 +24,17 @@
     <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
     <BaseOutputPath>bin$(AutomateMajor)/</BaseOutputPath>
     <!-- The SDK only excludes obj/ and bin/, so the per-line folders must be excluded from globbing here. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj17/**;obj18/**;bin17/**;bin18/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj17/**;obj18/**;obj19/**;bin17/**;bin18/**;bin19/**</DefaultItemExcludes>
     <DefineConstants>$(DefineConstants);AUTOMATE_$(AutomateMajor)</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(AutomateMajor)' == '19'">
+    <AutomateVersion>19.0.0-rc1</AutomateVersion>
+    <UmbracoCmsVersion>19.0.0-rc1</UmbracoCmsVersion>
+    <!-- Release candidates, the only 19 versions of Forms and its Automate integration on nuget.org at 2026-11-18. -->
+    <UmbracoFormsVersion>19.0.0-rc1</UmbracoFormsVersion>
+    <UmbracoFormsAutomateVersion>19.0.0-rc1</UmbracoFormsAutomateVersion>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(AutomateMajor)' == '18'">
     <AutomateVersion>18.5.1</AutomateVersion>
     <UmbracoCmsVersion>18.3.0</UmbracoCmsVersion>
@@ -38,7 +49,7 @@
     <UmbracoFormsVersion>17.6.2</UmbracoFormsVersion>
     <UmbracoFormsAutomateVersion>17.0.3</UmbracoFormsAutomateVersion>
   </PropertyGroup>
-  <Target Name="ValidateDemoAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18'">
-    <Error Text="AutomateMajor must be 17 or 18 (was '$(AutomateMajor)')." />
+  <Target Name="ValidateDemoAutomateMajor" BeforeTargets="CollectPackageReferences;_GenerateRestoreGraph" Condition="'$(AutomateMajor)' != '17' and '$(AutomateMajor)' != '18' and '$(AutomateMajor)' != '19'">
+    <Error Text="AutomateMajor must be 17, 18 or 19 (was '$(AutomateMajor)')." />
   </Target>
 </Project>

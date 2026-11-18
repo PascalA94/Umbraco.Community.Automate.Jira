@@ -68,7 +68,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          global-json-file: global.json
+          # Line 19 targets net11.0 and needs the .NET 11 SDK. 17 and 18 get the newest 10.0 SDK, which is what
+          # global-json-file resolved to while global.json said latestFeature. global.json now says latestMajor so
+          # both SDKs work locally, and setup-dotnet reads latestMajor as no version, so the band is named here.
+          dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
           # NuGet cache keyed on the per-line lock files. Never used in publish.yml, so a release never restores
           # from a cache a PR filled.
           cache: true
@@ -169,7 +172,7 @@ jobs:
           name: integration-diagnostics-${{ matrix.line }}-${{ matrix.leg }}
           path: |
             tests/Umbraco.Community.Automate.Jira.IntegrationTests/TEMP/logs/
-            tests/Umbraco.Community.Automate.Jira.IntegrationTests/bin/Debug/net10.0/hang-diagnostics/
+            tests/Umbraco.Community.Automate.Jira.IntegrationTests/bin/Debug/net*/hang-diagnostics/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -219,12 +222,16 @@ jobs:
         --config=./osv-scanner.toml
         --lockfile=packages.lock.json:./src/Umbraco.Community.Automate.Jira/packages.17.lock.json
         --lockfile=packages.lock.json:./src/Umbraco.Community.Automate.Jira/packages.18.lock.json
+        --lockfile=packages.lock.json:./src/Umbraco.Community.Automate.Jira/packages.19.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.Tests/packages.17.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.Tests/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.Tests/packages.19.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.IntegrationTests/packages.17.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.IntegrationTests/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.IntegrationTests/packages.19.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.ContractTests/packages.17.lock.json
         --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.ContractTests/packages.18.lock.json
+        --lockfile=packages.lock.json:./tests/Umbraco.Community.Automate.Jira.ContractTests/packages.19.lock.json
 
   docs-guard:
     name: docs-guard

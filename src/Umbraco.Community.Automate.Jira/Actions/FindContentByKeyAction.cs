@@ -1,7 +1,4 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
-using Examine;
-using Examine.Search;
 using Umbraco.Automate.Core.Actions;
 using Umbraco.Automate.Core.Security;
 using Umbraco.Cms.Core;
@@ -17,42 +14,26 @@ namespace Umbraco.Community.Automate.Jira.Actions;
 /// Find Content matches node names, which any editor can change. Reads only: not an <c>ICmsAction</c>.
 /// </summary>
 /// <remarks>
-/// One Examine query and one batch load (pitfalls P3, P4, P9). The index only proposes candidates; each one is
-/// checked against its draft property value, and the count is taken before permissions so a duplicate the
-/// service account cannot see still stops the run.
+/// The index only proposes candidates (Examine on lines 17 and 18, Umbraco Search on 19; see the two partial
+/// files). Each candidate is checked against its draft property value here, and the count is taken before
+/// permissions so a duplicate the service account cannot see still stops the run.
 /// </remarks>
 [Action(
     "community.jira.findContentByKey",
     "Find content by Jira key",
-    Description = "Finds the one content node whose Jira key property equals the issue key. Fails if none or more than one match.",
+    Description = ActionDescription,
     Group = "Content",
     Icon = "icon-search",
     RequiredSections = [Constants.Applications.Content],
     RequiredPermissions = [ActionBrowse.ActionLetter])]
 public sealed partial class FindContentByKeyAction : ActionBase<FindContentByKeySettings, FindContentByKeyOutput>
 {
-    /// <summary>Candidates read from the index; this many or more fails the step.</summary>
-    public const int MaxCandidates = 10;
+    private const string BaseDescription = "Finds the one content node whose Jira key property equals the issue key. Fails if none or more than one match.";
 
-    private readonly IExamineManager _examine;
+    // Assigned by the constructor in the line's partial file.
     private readonly IContentService _contentService;
     private readonly IContentTypeService _contentTypeService;
     private readonly IAutomationActionAuthorizer _authorizer;
-
-    /// <summary>Creates the action. Same dependencies as Automate's built-in Find Content, all site singletons.</summary>
-    public FindContentByKeyAction(
-        ActionInfrastructure infrastructure,
-        IExamineManager examine,
-        IContentService contentService,
-        IContentTypeService contentTypeService,
-        IAutomationActionAuthorizer authorizer)
-        : base(infrastructure)
-    {
-        _examine = examine;
-        _contentService = contentService;
-        _contentTypeService = contentTypeService;
-        _authorizer = authorizer;
-    }
 
     /// <inheritdoc />
     public override async Task<ActionResult> ExecuteAsync(ActionContext context, CancellationToken cancellationToken)
@@ -79,32 +60,20 @@ public sealed partial class FindContentByKeyAction : ActionBase<FindContentByKey
             return failure;
         }
 
-        if (!_examine.TryGetIndex(Constants.UmbracoIndexes.InternalIndexName, out var index))
+        var (candidates, candidateFailure) = await FindCandidatesAsync(types, alias, issueKey!, cancellationToken);
+        if (candidateFailure is not null)
         {
-            return ActionFailures.Configuration("The InternalIndex is not available on this site.");
+            return candidateFailure;
         }
 
-        // InternalIndex includes drafts: a page waiting to go live is often unpublished. The phrase is lower-cased
-        // to match the index's analysis; every value in it has passed a strict rule, so nothing needs escaping.
-        var typeClause = string.Join(' ', types.Select(t => "__NodeTypeAlias:" + t.Alias));
-        var query = $"+__IndexType:content +{alias}:\"{issueKey!.ToLowerInvariant()}\" +({typeClause})";
-        var results = index.Searcher.CreateQuery().NativeQuery(query).Execute(QueryOptions.SkipTake(0, MaxCandidates));
-        if (results.TotalItemCount >= MaxCandidates)
-        {
-            return ActionFailures.Validation($"Too many candidates for {issueKey} (at least {MaxCandidates}); check that {alias} values are unique.");
-        }
-
-        var ids = results.Select(r => int.Parse(r.Id, NumberStyles.Integer, CultureInfo.InvariantCulture)).ToArray();
         var typeKeys = types.Select(t => t.Key).ToHashSet();
 
         // Text fields are tokenised, so the index can over-match (SUP-17 inside "SUP-17 old"). Only the exact draft
         // value counts.
-        var matches = ids.Length == 0
-            ? []
-            : _contentService.GetByIds(ids)
-                .Where(c => !c.Trashed && typeKeys.Contains(c.ContentType.Key))
-                .Where(c => c.GetValue(alias) is string value && value.AsSpan().Trim(AsciiWhitespace).Equals(issueKey, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+        var matches = candidates
+            .Where(c => !c.Trashed && typeKeys.Contains(c.ContentType.Key))
+            .Where(c => c.GetValue(alias) is string value && value.AsSpan().Trim(AsciiWhitespace).Equals(issueKey, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
         var typeNames = string.Join(", ", types.Select(t => t.Alias));
         if (matches.Count == 0)
@@ -144,7 +113,7 @@ public sealed partial class FindContentByKeyAction : ActionBase<FindContentByKey
     private const string AsciiWhitespace = " \t\r\n";
 
     // Resolves the types and replaces alias with the property's own alias: Umbraco matches aliases ignoring case,
-    // but Lucene field names are case-sensitive (QA-M3-5).
+    // but index field names are case-sensitive (QA-M3-5; on 19 the field is Field_{alias}_texts).
     private bool TryResolveTypes(string? csv, ref string alias, out List<IContentType> types, out ActionResult failure)
     {
         types = [];

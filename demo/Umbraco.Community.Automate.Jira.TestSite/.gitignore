@@ -1,8 +1,10 @@
-# Per-line build output (Directory.Build.props puts obj/bin under obj17, obj18, bin17, bin18)
+# Per-line build output (Directory.Build.props puts obj/bin under obj17, obj18, obj19, bin17, bin18, bin19)
 obj17/
 obj18/
+obj19/
 bin17/
 bin18/
+bin19/
 # Generated JSON schemas, local overrides and runtime data
 appsettings-schema*.json
 umbraco-package-schema.json

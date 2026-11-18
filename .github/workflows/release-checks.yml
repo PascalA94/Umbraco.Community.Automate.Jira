@@ -57,7 +57,8 @@ jobs:
       # (M4 review SEC-M4-2). The locked restore pins every package by content hash anyway.
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          global-json-file: global.json
+          # Line 19 targets net11.0 and needs the .NET 11 SDK; 17 and 18 stay on 10.
+          dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
       - name: Restore (locked)
         run: dotnet restore tests/Umbraco.Community.Automate.Jira.ContractTests --locked-mode -p:AutomateMajor="$LINE"
       - name: Contract tests
@@ -111,7 +112,8 @@ jobs:
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          global-json-file: global.json
+          # Line 19 targets net11.0 and needs the .NET 11 SDK; 17 and 18 stay on 10.
+          dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
           cache: true
           cache-dependency-path: '**/packages.*.lock.json'
       - name: Restore (locked)
