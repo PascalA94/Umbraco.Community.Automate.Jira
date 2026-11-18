@@ -580,3 +580,52 @@ Resumed from the note above, with the M2 milestone commit in place (`796766f`), 
 - `spikes/` builds in place again (`spikes/Directory.Packages.props`, `spikes/.gitignore` for lock files). Probe17 and Probe18 carry NU1903 (not shipped).
 - Demo on the NuGet beta: `-p:JiraPackageSource=nuget`, `scripts/run-demo.sh <line>` (silent token prompt). Task 22 step 1 is waiting for Pascal to run it and build the form and automation.
 - Tests: 931/931 unit and 11/11 integration on both lines, floor and float.
+
+## Umbraco 19, Part 5a: credential helper 1.0.3 (2026-11-17, branch `feat/credential-helper-1.0.3`, uncommitted)
+
+Source: the Umbraco 19 plan for this package, Part 5a. Base `main` at `e6d1c0e`.
+
+- Preconditions: `main` clean and up to date at `e6d1c0e`. Newest 19 prerelease on NuGet (`Umbraco.Automate.Core`, `Umbraco.Cms.Core`) and npm (`@umbraco-cms/backoffice`) is `19.0.0-rc1`, as the guide assumes. No client in this repo (S7 n/a).
+- Task 1 (widen both predicates): done.
+  - Step 2: scratch check on Automate 19.0.0 gave `Failed: 1, Passed: 59, Total: 60` with the unpinned `ResolvingPooledDbContextFactory`1` message. Matches.
+  - Step 3: with only the `>= 6` pins widened, I07 failed with the stale `AutomatePooledDbContextOptions` pins message, as the guide says. Drift: the run showed `Failed: 2`, not 1; the second is C17 `Source_MatchesCanonicalHash`, because the edited file is hashed and the hash still said 1.0.2. Expected, not a finding.
+  - Step 4: Ruling: the `HasResolvingPool` helper and its two-line comment sit above the existing I07 pin comment block, with a blank line after, not directly above the `ConfigurationPin` record. Directly above would put the helper between the record and the comment that describes it. Same text, same `8 insertions, 4 deletions`. Cost if wrong: none for behaviour; the hash is computed from the committed text.
+  - Steps 5 to 7: markers `1.0.3` on the four files, `ContractVersion = "1.0.3"`, hash `5e66dff814796722e4fb61695825476c9fdae14803a7c9de8d89e98889824eb2` from C17. C17 and C18 `Passed: 2`.
+- Task 2 (contract doc and CHANGELOG): done. Dated backup of the contract doc made first. Edited lines 3, 4, 5, 7, 21, 154, 183, 196, 209, 295, 304 and the history entry. Remaining `1.0.2` hits are history or current-state lines only. CHANGELOG bullet under `## Unreleased`. No en or em dash in added lines. The `<Task 4 verdict>`, `<PR number>` and `<tag commit SHA>` placeholders are filled later (verdict by Claude after Task 4, the other two by Pascal).
+- Task 3 (contract and isolation suites on 17, 18, 19): done. `CredentialHelperContract` suite `Passed: 60` on all five legs: 18 floor (Automate 18.5.1), 17 floor (17.5.1), 18 latest (18.6.0), 17 latest (17.6.0), 19 in scratch (19.0.0, net11 via `/usr/local/share/dotnet/dotnet`). Resolved versions read from the I07 `Automate x.y.z; scanned:` line at detailed verbosity (normal verbosity does not print it on a pass; the guide says normal). Full suites with `-p:AutomateMajor=18` and `=17`: 931/931 unit, 11/11 integration on both. Drift: the guide quotes the impact report's 897 unit tests; the repo has 931 (as recorded at M6).
+- Task 4 (security review gate): done. Fresh-context security-analyst (opus): approve with conditions, no Critical or High, patch confirmed. Low 1: the member-free pin key now also absorbs a new same-access method on the pooled factory on 19.x and 20.x; accepted residual, kept the "review Automate's release notes on each bump" rule. Low 2: no CI leg runs I07 on 19 until the 19 line lands (Part 5b), so 1.0.3 on 19 is proven in scratch only. Verdict written into the contract doc status line and history entry.
+- QA review (fresh-context qa-reviewer, sonnet): pass with three Minors. Fixed: private planning paths removed from this file. The other two were the open placeholders (verdict now filled; PR number and tag SHA are Pascal's) and the helper placement (accepted, see the Task 1 ruling).
+- Ruling: the milestone commit stages this file as well as the guide's list, because it is a tracked log in this repo and the M5 and M6 records went in the same way. Cost if wrong: one extra file in the squash commit; unstage it to follow the guide exactly.
+
+### Paused here (2026-11-17)
+
+Part 5a is built and reviewed. Stop: Part 5b does not start until `credential-helper-1.0.3` is tagged and pushed, and it branches from `main` after this PR merges.
+
+**Not verified by the build session (Pascal):**
+- Contract suites on Automate 19 in CI: none until Part 5b adds the 19 legs. 1.0.3 on 19 is proven only in a scratch copy (`Passed: 60`, Automate 19.0.0, net11).
+- PR checks on this branch: `build-test (17|18, floor|latest)`, `gitleaks`, `osv-scanner`, `docs-guard`. Expected: all green. They run when the PR opens (below).
+- No live Jira, SQL Server or e2e run is needed for 5a (test-only change; the store changes only its marker line).
+
+**Pascal's release steps (5a):**
+1. Run the Milestone commit block below, then `git push -u origin feat/credential-helper-1.0.3 && gh pr create --fill --base main`.
+2. Wait for the PR checks to go green, then squash merge.
+3. GitHub, Settings, Rules, tag ruleset "release tags": add `refs/tags/credential-helper-*` with block update and block deletion, admin bypass as for `v*` (security finding M1).
+4. Tag the merge commit and push only the tag:
+   ```bash
+   git switch main && git pull --ff-only
+   git tag credential-helper-1.0.3
+   git push origin credential-helper-1.0.3
+   ```
+5. `git ls-remote --tags https://github.com/PascalA94/Umbraco.Community.Automate.Jira credential-helper-1.0.3`. Expected: one line ending `refs/tags/credential-helper-1.0.3`.
+6. `git rev-parse credential-helper-1.0.3`: write the SHA into the contract doc status line (replace `<tag commit SHA>`, and `<PR number>` with the PR) and into the DeployHooks script as `EXPECTED_COMMIT` (DeployHooks guide Task 1). Save the contract doc as for every freeze.
+7. Later, not this plan: Teams re-copies from 1.0.3 before its next release.
+
+**Milestone commit:**
+```bash
+cd ~/Projects/Umbraco.Community.Automate.Jira
+git switch feat/credential-helper-1.0.3
+git status --short   # expect exactly 6 modified files: CHANGELOG.md, COMMITS-TODO.md, src/.../CredentialHelper/JiraCredentialStore.cs and 3 files in tests/.../CredentialHelperContract. No appsettings, no .claude/settings.local.json, no review docs, no secrets.
+git add -A
+git commit -m "test: credential-helper-contract 1.0.3 (I07 pin scope for Automate 19)"
+git log -1 --stat
+```

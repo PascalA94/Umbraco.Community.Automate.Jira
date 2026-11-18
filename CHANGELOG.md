@@ -4,6 +4,8 @@ Versions follow `<Umbraco major>.<minor>.<patch>`. One tag ships the 17 and 18 l
 
 ## Unreleased
 
+- Credential helper contract 1.0.3: test scope for Automate 19. No change for users.
+
 ## 18.0.0
 
 First stable release. The package code is the same as `18.0.0-beta.1`; this release adds what the live check on a site against Jira Cloud found.
