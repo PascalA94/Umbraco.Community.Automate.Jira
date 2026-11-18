@@ -17,9 +17,15 @@ fixture webhook appsettings.Production.json '{ "Credentials": { "acmewh": { "Web
 fixture flat appsettings.json '{ "Umbraco:Automate:Jira:Credentials:agency:ApiToken": "fakevalue-sample-3" }' # gitleaks:allow
 fixture launch Properties/launchSettings.json '{ "environmentVariables": { "Umbraco__Automate__Jira__Credentials__agency__ApiToken": "fakevalue-sample-4" } }' # gitleaks:allow
 fixture dotenv .env 'Umbraco__Automate__Jira__Credentials__agency__WebhookSecret=fakevalue-sample-5' # gitleaks:allow
+# The README's own layout: a second named entry, and colon-joined keys, which .NET configuration flattens the same way.
+fixture nonfirst appsettings.json '{ "Credentials": { "acme": { "Email": "svc@example.test" }, "acmewh": { "WebhookSecret": "fakevalue-sample-6" } } }' # gitleaks:allow
+fixture colonparent appsettings.json '{ "Umbraco:Automate:Jira:Credentials": { "agency": { "ApiToken": "fakevalue-sample-7" } } }' # gitleaks:allow
+fixture colonname appsettings.json '{ "Umbraco": { "Automate": { "Jira": { "Credentials:agency": { "ApiToken": "fakevalue-sample-8" } } } } }' # gitleaks:allow
+fixture colontoken appsettings.json '{ "Umbraco": { "Automate": { "Jira": { "Credentials": { "agency:ApiToken": "fakevalue-sample-9" } } } } }' # gitleaks:allow
 # Expected: none.
 fixture notifications appsettings.json '{ "Umbraco": { "CMS": { "Content": { "Notifications": { "Email": "noreply@example.test" } } } } }'
 fixture empty appsettings.json '{ "Umbraco": { "Automate": { "Jira": { "Credentials": { "acme": { "Email": "svc@example.test", "ApiToken": "" } } } } } }'
+fixture otherservice appsettings.json '{ "SomeOtherService": { "ApiToken": "not-a-jira-value" } }'
 
 failed=0
 check() {
@@ -33,8 +39,8 @@ check() {
   fi
 }
 
-for name in nested webhook flat launch dotenv; do check "$name" 1; done
-for name in notifications empty; do check "$name" 0; done
+for name in nested webhook flat launch dotenv nonfirst colonparent colonname colontoken; do check "$name" 1; done
+for name in notifications empty otherservice; do check "$name" 0; done
 
-[[ $failed -eq 0 ]] && echo "check-gitleaks-sample: ok (5 caught, 2 ignored)"
+[[ $failed -eq 0 ]] && echo "check-gitleaks-sample: ok (9 caught, 3 ignored)"
 exit $failed
