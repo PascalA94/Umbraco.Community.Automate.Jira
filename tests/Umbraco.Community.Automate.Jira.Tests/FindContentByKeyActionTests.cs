@@ -1,3 +1,5 @@
+#if !AUTOMATE_19
+// Lines 17 and 18 (Examine). Line 19 is covered by FindContentByKeyActionSearchTests.
 using System.Reflection;
 using Examine;
 using Examine.Search;
@@ -380,3 +382,4 @@ public class FindContentByKeyActionTests
         Assert.DoesNotContain(parameters, t => t == typeof(IHttpClientFactory) || t == typeof(HttpClient));
     }
 }
+#endif

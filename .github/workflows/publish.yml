@@ -1,9 +1,10 @@
 name: publish
 
-# Runs on a version tag pushed by Pascal after the release PR is squash-merged. One tag ships every line in
-# eng/lines.txt: tag v18.<minor>.<patch>[-<suffix>] packs 18.<minor>.<patch>[-<suffix>] and
-# 17.<minor>.<patch>[-<suffix>] (plan Global Constraints: one tag ships both lines). Run "release-checks" on the
-# release PR first.
+# Runs on a version tag pushed by Pascal after the release PR is squash-merged. Two tag groups (decision D6):
+#   v18.<minor>.<patch>[-<suffix>] packs 18.<minor>.<patch>[-<suffix>] and 17.<minor>.<patch>[-<suffix>], as before
+#     (plan Global Constraints: one tag ships both lines);
+#   v19.<minor>.<patch>[-<suffix>] packs 19.<minor>.<patch>[-<suffix>] only, so a 19 release never re-pushes 17 or 18.
+# Any other major is rejected. Run "release-checks" on the release PR first.
 on:
   push:
     tags:
@@ -28,10 +29,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
       - name: Read the tag
         id: tag
         env:
@@ -42,19 +39,36 @@ jobs:
           if grep -qvE '^[0-9]+$' <<<"$lines"; then
             echo "eng/lines.txt must hold one numeric line per row" >&2; exit 1
           fi
-          newest="$(sort -n <<<"$lines" | tail -1)"
           if [[ ! "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9A-Za-z][0-9A-Za-z.-]*))?$ ]]; then
             echo "Tag $TAG is not v<line>.<minor>.<patch>[-<suffix>]" >&2; exit 1
           fi
-          if [[ "${BASH_REMATCH[1]}" != "$newest" ]]; then
-            echo "Tag $TAG must start with the newest line, v$newest" >&2; exit 1
+          major="${BASH_REMATCH[1]}"; minor="${BASH_REMATCH[2]}"; patch="${BASH_REMATCH[3]}"; suffix="${BASH_REMATCH[5]}"
+          # The tag's group: the lines below 19 for a major below 19, line 19 for 19 and above. The major must be the
+          # newest line of its group, so v17.*, v20.* and anything with a leading zero are rejected.
+          if (( 10#$major < 19 )); then
+            group="$(awk '$1 < 19' <<<"$lines")"
+          else
+            group="$(awk '$1 == 19' <<<"$lines")"
           fi
+          newest="$(sort -n <<<"$group" | tail -1)"
+          if [[ -z "$group" || "$major" != "$newest" ]]; then
+            echo "Tag $TAG must start with the newest line of its group (v18 for 17 and 18, v19 for 19)" >&2; exit 1
+          fi
+          # Line 19 targets net11.0 and needs the .NET 11 SDK; 17 and 18 stay on 10.
+          if [[ "$major" == "19" ]]; then sdk="11.0"; else sdk="10.0"; fi
           {
-            echo "minor=${BASH_REMATCH[2]}"
-            echo "patch=${BASH_REMATCH[3]}"
-            echo "suffix=${BASH_REMATCH[5]}"
-            echo "lines=$(tr '\n' ' ' <<<"$lines")"
+            echo "minor=$minor"
+            echo "patch=$patch"
+            echo "suffix=$suffix"
+            echo "lines=$(tr '\n' ' ' <<<"$group")"
+            echo "expected=$(wc -w <<<"$group" | tr -d ' ')"
+            echo "sdk=$sdk"
           } >> "$GITHUB_OUTPUT"
+
+      # After the tag is read, because the tag decides the SDK.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: ${{ steps.tag.outputs.sdk }}
 
       - name: Tag is on main and in the changelog
         env:
@@ -65,9 +79,10 @@ jobs:
           # Whole-line match: "## 18.0.0" must not be satisfied by "## 18.0.0-beta.1" or "## 18.0.10".
           grep -qxF "## ${TAG#v}" CHANGELOG.md || { echo "CHANGELOG.md has no '## ${TAG#v}' heading line" >&2; exit 1; }
 
-      - name: Test, audit and pack every line
+      - name: Test, audit and pack every line of the tag's group
         env:
           LINES: ${{ steps.tag.outputs.lines }}
+          EXPECTED: ${{ steps.tag.outputs.expected }}
           MINOR: ${{ steps.tag.outputs.minor }}
           PATCH: ${{ steps.tag.outputs.patch }}
           SUFFIX: ${{ steps.tag.outputs.suffix }}
@@ -80,6 +95,11 @@ jobs:
             scripts/pack.sh "$line" ./artifacts "$MINOR" "$PATCH" ${SUFFIX:+"$SUFFIX"}
           done
           for pkg in ./artifacts/*.nupkg; do scripts/check-packed-readme.sh "$pkg"; done
+          # One package per line of the tag's group, never more: a 19 tag must not carry a 17 or 18 package.
+          count="$(find ./artifacts -maxdepth 1 -name '*.nupkg' | wc -l | tr -d ' ')"
+          if [[ "$count" != "$EXPECTED" ]]; then
+            echo "Expected $EXPECTED package(s) for lines $LINES, found $count" >&2; exit 1
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -116,4 +136,5 @@ jobs:
       - name: Push to NuGet
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
+        # --skip-duplicate: a re-run after a partial push must not fail on the versions already on nuget.org.
+        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate

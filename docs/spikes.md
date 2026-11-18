@@ -594,3 +594,20 @@ The worst observed lag (0.36 s) is far below Automate's first retry delay (30 s,
 - `release-checks` on `b0b7166`: contract tests `Passed: 2` on 17 and 18 against SBX through the gateway (scoped token with exactly `read:jira-work`, `write:jira-work`, `read:jira-user`), and integration on SQL Server passed on both lines [HIGH - CI run].
 - **Dedupe search lag: 0.7 s** on both lines (a just-created issue was found by the marker search 0.7 s after creation) [HIGH - CI run, one sample per line].
 - S3's open item on the scope list is settled for the actions and dedupe. Validate (`/myself`, needs `read:jira-user`) is not covered by the contract tests; it is still to be checked in a local SBX session.
+
+## Automate 19 gate (Task 0 steps 3, 4 and 7 on the 19 line, run 2026-11-18)
+
+The 19 line ships as a release candidate only after this gate passes on a site running Automate 19.0.0-rc1 (and the `security-audit` run). Set-up:
+
+- `spikes/CredentialIsolation/site19`: a copy of `site18` on net11.0 with `Umbraco.Cms`, `Umbraco.Cms.DevelopmentMode.Backoffice` and `Umbraco.Automate` 19.0.0-rc1, Kestrel on `http://localhost:5119` and `https://localhost:5419`. `Spike.CredentialStore` builds for 19 with `-p:AutomateMajor=19`, which `t21-tools/start-site.sh 19` passes; it needs the .NET 11 SDK on `PATH`.
+- A fresh site needs a database: start it once with Umbraco's unattended install (`Umbraco__CMS__Unattended__InstallUnattended=true` and the `UnattendedUser*` variables), with the admin email `spike@example.invalid`, because `SpikeRunController` looks that user up. Without a database the site fails to boot (SQLite error 14) and every case returns HTTP 500.
+- The echo listener writes to stdout. Append it to the log the scripts count in: `dotnet run --project EchoListener >> echo.log` from the `CredentialIsolation` folder. Without that redirect `echo.log` stays empty and a count of 0 proves nothing.
+- `scan-surfaces.py` asks for a token as `umbraco-back-office-spike` unless `SPIKE_CLIENT_ID` is set; register the client secret (`POST /spike/client`) under the same id.
+- Cases, unchanged from 17 and 18 (`SpikeRunController`): `pkg-url-embedded`, `pkg-header-whole`, `pkg-header-embedded`, `pkg-url-whole`, `control-secrets-header`, `control-secrets-url`, `pkg-log-whole`, `pkg-log-embedded`, `var-log-whole`, `read-credential`.
+- The scripts log in with the `client_credentials` grant, which Umbraco 19 keeps for API users; if `fetch-swagger.sh` reports a zero-length token on 19, switch it to the cookie login and record that here.
+
+| Line | Automate | Step 3 (default allow-list, package value never reaches the listener) | Step 4 (widened, value leaks and the store refuses) | Step 7 (surface scan) | Result |
+|---|---|---|---|---|---|
+| 19 | 19.0.0-rc1 | Pass: package sentinel 0 in the listener log and 0 in the evidence; the Secrets control reached the listener (1); embedded package references arrived literal; whole-value package references and the URL control were refused with `ConfigurationError` before anything was sent; `read-credential` `ok: true` | Pass: with `Umbraco:Automate` added to the allow-list the package value reached the listener (5 hits) and the stored step results (4 evidence files); `read-credential` `ok: false`, "Refused: Umbraco:Automate:AllowedConfigurationKeyPrefixes contains 'Umbraco:Automate', which exposes ..."; the startup check logged once at Critical | Not run: a scan was started and stopped before it finished; steps 3 and 4 decide the gate | Pass on steps 3 and 4 |
+
+Same outcome as 17 and 18 in every case. `pkg-url-whole` with the widened list failed on its own (the resolved value is not a URL), as expected. Steps 3 and 4 ran by hand (Pascal, 2026-11-18) against a staged copy outside the repo with a fresh sentinel; the staged copy and its database are throwaway and not kept. Residual: the step 7 surface scan was not repeated on 19; step 3 found no sentinel in the stored step results, which is where the 17 and 18 scans found the widened leak.

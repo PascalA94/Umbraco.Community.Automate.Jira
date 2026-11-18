@@ -1,25 +1,57 @@
 using System.Diagnostics;
-using Examine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NUnit.Framework;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.DependencyInjection;
-using Umbraco.Cms.Infrastructure.Examine;
-using Umbraco.Cms.Infrastructure.Examine.DependencyInjection;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Core.Strings;
+#if AUTOMATE_19
+using Umbraco.Cms.Core.Extensions;
+using Umbraco.Cms.Core.HostedServices;
+using Umbraco.Cms.Core.Search;
+using Umbraco.Cms.Core.Search.Querying;
+using Umbraco.Cms.Core.Search.Querying.Filtering;
+using Umbraco.Cms.Core.ServerEvents;
+using Umbraco.Cms.Core.Sync;
+using Umbraco.Cms.Search.Core.DependencyInjection;
+using Umbraco.Cms.Search.Provider.Examine.DependencyInjection;
+using Umbraco.Cms.Tests.Integration.Testing;
+using Umbraco.Extensions;
+#else
+using Examine;
+using Umbraco.Cms.Infrastructure.Examine;
+using Umbraco.Cms.Infrastructure.Examine.DependencyInjection;
 using Umbraco.Cms.Tests.Integration.Umbraco.Examine.Lucene.UmbracoExamine;
+#endif
 
 namespace Umbraco.Community.Automate.Jira.IntegrationTests;
 
 /// <summary>
-/// Real InternalIndex and IContentService (Umbraco's integration harness, SQLite), with helpers that save content
-/// and wait until the index has caught up.
+/// Real index and IContentService (Umbraco's integration harness, SQLite), with helpers that save content and wait
+/// until the index has caught up. Lines 17 and 18 use Examine's InternalIndex; line 19 uses Umbraco Search's draft
+/// content index (Umb_Content) with the default Examine provider, so text analysis is the real one.
 /// </summary>
 // 120 s against a normal suite of about 26 s: long enough for a slow runner, short enough to fail before the job timeout.
 [HangWatchdog(120)]
+#if AUTOMATE_19
+public abstract class JiraContentTestBase : UmbracoIntegrationTest
+{
+    // ExamineBaseTest is gone on 19. Wire Umbraco Search as a site does (AddSearchCore plus the Examine provider) and
+    // swap in the test doubles that index on the calling thread (SearchTestDoubles.cs). Umbraco's in-memory
+    // TestIndexerAndSearcher is not used: it does not analyse text, so it cannot show the over-matching the action's
+    // exact recheck exists for.
+    protected override void CustomTestSetup(IUmbracoBuilder builder)
+    {
+        base.CustomTestSetup(builder);
+        builder.AddSearchCore();
+        builder.AddExamineSearchProvider();
+        builder.Services.AddUnique<IBackgroundTaskQueue, ImmediateBackgroundTaskQueue>();
+        builder.Services.AddUnique<IServerMessenger, LocalServerMessenger>();
+        builder.Services.AddUnique<IServerEventRouter, NoOpServerEventRouter>();
+    }
+#else
 public abstract class JiraContentTestBase : ExamineBaseTest
 {
     // The harness registers no site indexes by default; add Umbraco's real ones so the action finds "InternalIndex"
@@ -29,6 +61,7 @@ public abstract class JiraContentTestBase : ExamineBaseTest
         base.CustomTestSetup(builder);
         builder.AddExamineIndexes();
     }
+#endif
 
     /// <summary>
     /// Holds each test until Umbraco's unattended package migrations, including Automate's, have finished.
@@ -92,7 +125,7 @@ public abstract class JiraContentTestBase : ExamineBaseTest
     protected IContentTypeService ContentTypeService => GetRequiredService<IContentTypeService>();
 
     // The Lucene index outlives each test's fresh database and node IDs restart, so documents from earlier tests
-    // stay in the index (clearing it races the queued indexing). Each test gets its own type alias, so the
+    // stay in the index (clearing it races the queued indexing; on 19 the global setup wipes it once per run). Each test gets its own type alias, so the
     // action's type clause never sees them; a reused ID is simply re-indexed with the new node.
     protected async Task<IContentType> CreateArticleTypeAsync(string? alias = null, string propertyAlias = "jiraKey", ContentVariation propertyVariation = ContentVariation.Nothing)
     {
@@ -137,6 +170,38 @@ public abstract class JiraContentTestBase : ExamineBaseTest
         return content;
     }
 
+#if AUTOMATE_19
+    // Indexing runs from the save's notifications through the immediate queue, but the searcher reopens a moment
+    // later (about 1 s in the spike). Wait until this node's current state is what the action's own filters see:
+    // listed while live, gone once it is in the recycle bin. Matching on the key, not a count, also ignores any
+    // document a previous fixture left behind.
+    protected async Task IndexAsync(IContent content)
+    {
+        var saved = ContentService.GetById(content.Key)!;
+        var searcher = GetRequiredService<ISearcherResolver>().GetSearcher(Constants.Search.IndexAliases.DraftContent)
+            ?? throw new InvalidOperationException("No searcher is registered for Umb_Content.");
+        Filter[] filters =
+        [
+            new KeywordFilter(Constants.Search.FieldNames.ContentTypeId, [saved.ContentType.Key.AsKeyword()], false),
+            new KeywordFilter(Constants.Search.FieldNames.PathIds, [Constants.System.RecycleBinContentKey.AsKeyword()], true),
+        ];
+
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            // Bypass: a node under public access protection must count as indexed too.
+            var result = await searcher.SearchAsync(Constants.Search.IndexAliases.DraftContent, filters: filters, accessContext: AccessContext.BypassProtection(), take: 1000);
+            var listed = result.Documents.Any(d => d.Id == saved.Key);
+            if (listed != saved.Trashed)
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException($"Node {saved.Key} did not reach its current state in Umb_Content.");
+    }
+#else
     // A site indexes from cache-refresher notifications on a background queue, which the harness does not run.
     // The documents come from the same IContentValueSetBuilder the site's InternalIndex handler uses, so field
     // names and analysis are the real ones.
@@ -165,4 +230,5 @@ public abstract class JiraContentTestBase : ExamineBaseTest
 
         throw new TimeoutException($"Node {saved.Id} did not become searchable in the InternalIndex.");
     }
+#endif
 }

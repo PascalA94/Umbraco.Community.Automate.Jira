@@ -1,6 +1,14 @@
 # Changelog
 
-Versions follow `<Umbraco major>.<minor>.<patch>`. One tag ships the 17 and 18 lines.
+Versions follow `<Umbraco major>.<minor>.<patch>`. One tag ships the 17 and 18 lines. A tag v19.* ships the 19 line only.
+
+## 19.0.0-rc.1
+
+Release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable.
+
+- New 19 line for Umbraco CMS 19 and Umbraco Automate 19 (release candidates) on .NET 11. Lines 17 and 18 are unchanged.
+- Find content by Jira key uses Umbraco Search's draft content index on 19 (Examine is gone from Umbraco 19). The index only proposes candidates; the exact value check and the duplicate rule decide, as before. Members-only pages are still counted. If more than 2000 nodes look like the key, the step fails rather than guess. After upgrading a site, rebuild the Umbraco Search indexes.
+- The comment and issue format settings use the single-choice dropdown (`Umb.PropertyEditorUi.Dropdown.Single`) on 19, where the plain dropdown is always multi-select.
 
 ## Unreleased
 

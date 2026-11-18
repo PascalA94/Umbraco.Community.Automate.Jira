@@ -33,11 +33,22 @@
       MessagePack 3.1.9                          GHSA-qhrr-8q5h-9q3h (moderate), fixed in 3.1.9
       OpenTelemetry.Api 1.15.3                   GHSA-g94r-2vxg-569j (moderate), fixed in 1.15.3
       System.Security.Cryptography.Xml 10.0.13   GHSA-r955-8q5j-3h83, GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj (high), fixed in 10.0.13
+    Line 19 raises two of them, because Umbraco CMS 19.0.0-rc1 itself depends on MessagePack 3.1.12 and
+    Umbraco.Cms.Api.Management 19.0.0-rc1 on System.Security.Cryptography.Xml 11.0.0 (a lower pin fails with NU1109).
+    The 17 and 18 values stay, so their lock files do not change.
+      MessagePack 3.1.12                         line 19 only, CMS 19 minimum
+      System.Security.Cryptography.Xml 11.0.0    line 19 only, CMS 19 minimum
   -->
   <ItemGroup>
-    <PackageVersion Include="MessagePack" Version="3.1.9" />
     <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(AutomateMajor)' != '19'">
+    <PackageVersion Include="MessagePack" Version="3.1.9" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(AutomateMajor)' == '19'">
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="11.0.0" />
   </ItemGroup>
 
   <!-- Build-time only, never flows to consumers (PrivateAssets=all on the reference). -->

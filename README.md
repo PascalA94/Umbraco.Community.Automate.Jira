@@ -8,13 +8,15 @@ Create Jira issues, add comments and move issues between statuses from [Umbraco 
 
 A community package, not made or supported by Umbraco HQ. It is not affiliated with, endorsed by or sponsored by Atlassian. "Jira" is a trademark of Atlassian.
 
-**Requires** Umbraco CMS 17.8+ with Umbraco Automate 17.5.1+, or Umbraco CMS 18.3+ with Umbraco Automate 18.5.1+. Jira Cloud only (not Data Center).
+**Requires** Umbraco CMS 17.8+ with Umbraco Automate 17.5.1+, or Umbraco CMS 18.3+ with Umbraco Automate 18.5.1+, or Umbraco CMS 19 with Umbraco Automate 19 (release candidate, on .NET 11). Jira Cloud only (not Data Center).
+
+The 19 line is a release candidate: Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable. After upgrading a site to Umbraco 19, rebuild the Umbraco Search indexes, or Find content by Jira key finds nothing.
 
 ## Quick start
 
 About 15 minutes if you have used Automate before. Each step links to the full section.
 
-1. **Install** the line that matches your site: `dotnet add package Umbraco.Community.Automate.Jira --version 18.*` (or `17.*` on Umbraco 17). See [Install](#install).
+1. **Install** the line that matches your site: `dotnet add package Umbraco.Community.Automate.Jira --version 18.*` (or `17.*` on Umbraco 17, or the release candidate `19.0.0-rc.*` on Umbraco 19). See [Install](#install).
 2. **Make a Jira token.** Use a service account that is not a Jira admin, and create a scoped API token with `read:jira-work`, `write:jira-work` and `read:jira-user` that expires in 90 days or less. See [Service account requirements](#service-account-requirements).
 3. **Store it in configuration** under a credential name such as `agency`, as environment variables or secrets, never in a committed `appsettings.json`:
    ```
@@ -48,17 +50,21 @@ Starting automations from Jira (webhooks) is optional: see [Inbound webhooks](#i
 
 ## Install
 
-Pick the package line that matches your Umbraco major. One codebase builds both.
+Pick the package line that matches your Umbraco major. One codebase builds all three.
 
 | Package version | Umbraco Automate | Umbraco CMS |
 |---|---|---|
+| `19.x` (release candidate) | `[19.0.0-rc1, 20.0.0)` | `[19.0.0-rc1, 20.0.0)` |
 | `18.x` | `[18.5.1, 19.0.0)` | `[18.3.0, 19.0.0)` |
 | `17.x` | `[17.5.1, 18.0.0)` | `[17.8.0, 18.0.0)` |
 
 ```bash
+dotnet add package Umbraco.Community.Automate.Jira --version 19.0.0-rc.*   # Umbraco 19 (release candidate)
 dotnet add package Umbraco.Community.Automate.Jira --version 18.*   # Umbraco 18
 dotnet add package Umbraco.Community.Automate.Jira --version 17.*   # Umbraco 17
 ```
+
+A release candidate is a prerelease, so name its version as above: a plain install without `--version` picks the newest stable line instead. Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable.
 
 The package registers itself through a composer. There is nothing to add to `Program.cs`.
 
@@ -208,7 +214,8 @@ Finds the one content node whose Jira-key property equals an issue key. It match
 Outputs: `ContentKey`, `Name`, `ContentTypeAlias`, `IsPublished`, `UpdateDate`.
 
 - It fails unless exactly one node matches. Duplicates are counted before permissions, so a duplicate the service account cannot see still stops the run.
-- It searches drafts too, through the internal Examine index. The count is only as fresh as that index: a node saved a moment ago, or an index being rebuilt, may not be counted yet.
+- It searches drafts too: through the internal Examine index on 17 and 18, and through the Umbraco Search draft content index on 19. The count is only as fresh as that index: a node saved a moment ago, or an index being rebuilt, may not be counted yet. On 19, rebuild the Umbraco Search indexes after upgrading; until then the index is empty and the step reports no match.
+- On 19 the index proposes every node whose value starts like the key (`SUP-17` also offers `SUP-170`), and the exact check then decides. If more than 2000 nodes look like the key, the step fails rather than guess; use a longer key.
 - **Keep the key unique.** Use an invariant Textstring property called `jiraKey` on the content types involved, filled in only by people who may publish them, and check for duplicates when you copy a node (the copy keeps the key).
 
 ## Duplicate protection
@@ -305,7 +312,7 @@ The recipe, in order:
 What is published is the draft as it was when approved. Residuals:
 - A save that lands in the moment between the step 8 check and step 9 is published without a second review.
 - How precisely the step 8 condition compares the two `UpdateDate` values has not been checked yet. If it compares to the second, a save in the same second as step 4 would not be noticed.
-- Find content by Jira key counts duplicates from the Examine index, so a duplicate saved a moment ago, or during an index rebuild, may not be counted (see [Find content by Jira key](#find-content-by-jira-key-communityjirafindcontentbykey)).
+- Find content by Jira key counts duplicates from the search index (Examine on 17 and 18, Umbraco Search on 19), so a duplicate saved a moment ago, or during an index rebuild, may not be counted (see [Find content by Jira key](#find-content-by-jira-key-communityjirafindcontentbykey)).
 
 Keep the subtree's editors to people trusted to publish it.
 

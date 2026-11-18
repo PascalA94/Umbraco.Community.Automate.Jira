@@ -13,8 +13,10 @@ public class BuildSwitchTests
         Assert.Equal(17, referenced);
 #elif AUTOMATE_18
         Assert.Equal(18, referenced);
+#elif AUTOMATE_19
+        Assert.Equal(19, referenced);
 #else
-        Assert.Fail("Neither AUTOMATE_17 nor AUTOMATE_18 is defined.");
+        Assert.Fail("Neither AUTOMATE_17, AUTOMATE_18 nor AUTOMATE_19 is defined.");
 #endif
     }
 }

@@ -18,7 +18,7 @@ public sealed class AddCommentSettings
     [Field(
         Label = "Comment format",
         Description = "Plain text is safest for values from forms or the public. Markdown interprets formatting in bound values.",
-        EditorUiAlias = "Umb.PropertyEditorUi.Dropdown",
+        EditorUiAlias = EditorAliases.SingleDropdown,
         EditorConfig = """[{ "alias": "items", "value": ["PlainText", "Markdown", "AdfJson"] }]""",
         SupportsBindings = false,
         SortOrder = 3)]
