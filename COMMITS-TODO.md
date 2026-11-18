@@ -781,3 +781,13 @@ git add -A
 git commit -m "feat: Umbraco 19 line (Automate 19.0.0-rc1, Umbraco Search for Find content by key)"
 git log -1 --stat
 ```
+
+### CI results (2026-11-18)
+
+- Milestone commit `204ea3c` on `feat/umbraco-19`, PR #13.
+- PR checks on #13: all green, including `build-test (19, floor)` and `build-test (19, latest)`, and CodeQL `analyze (csharp)` on the named `10.0` SDK. The first 19 run settled the CI unknowns: `dotnet-version: 11.0` resolved on hosted runners without `dotnet-quality`, and the dotnet-stack install ran on the 19 legs.
+- `main` ruleset: `build-test (19, floor)` and `build-test (19, latest)` added as required checks (9 in total); the other rules are unchanged (read back after the update).
+- release-checks on `feat/umbraco-19` (run 44211191978): SQL Server 17, 18 and 19 green; the contract jobs did not run, because `jira-sandbox` only deploys from `main` and protected `release/*` branches.
+- release-checks on `release/19.0.0-rc.1` (same commit, run 44211687346): all green. SQL Server integration on 17, 18 and 19; live Jira contract `total="2" executed="2" passed="2"` on 17, 18 and 19.
+- Still open before the `v19.0.0-rc.1` tag: the S7 isolation gate on site19 (record it in `docs/spikes.md`). Then merge, tag, approve `nuget`, prerelease, as in "Pascal's release steps (5b)" above.
+- Note for later releases: run release-checks from a `release/<version>` branch, as CONTRIBUTING says; a feature branch cannot reach `jira-sandbox`.
