@@ -2,6 +2,29 @@
 
 Versions follow `<Umbraco major>.<minor>.<patch>`. One tag ships the 17 and 18 lines. A tag v19.* ships the 19 line only.
 
+## Unreleased
+
+## 19.0.0-rc.2
+
+Second release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable.
+
+- Duplicate protection: Create Jira issue only reuses an issue that the connection's own Jira account created with the dedupe label already on it, and Add comment only reuses a comment written by that account. Before, an issue or comment carrying a copy of the marker could be returned as the earlier run's. When a match is found it reads that issue's history (or the account's identity, for comments), so it costs a few extra Jira reads.
+- Markdown comments and descriptions: long text with many line breaks converts in linear time (it was quadratic).
+- Find content by Jira key on 19: the search runs in the default language. A culture-variant node with no default-language version is not counted, so it cannot be found and does not count as a duplicate.
+- Sample gitleaks rules (`eng/gitleaks-jira-credentials.toml`): the JSON rule now also catches a token in a second or later named entry and in colon-joined keys (`"Umbraco:Automate:Jira:Credentials": …`, `"Credentials:<name>": …`, `"<name>:ApiToken": …`). Copy the updated rule into your site's `.gitleaks.toml`.
+- Build: CI pins the .NET SDK of each line, so lines 17 and 18 build on the 10 SDK even where a newer SDK is installed. No change for users.
+
+## 18.0.1
+
+Ships 18.0.1 and 17.0.1.
+
+- Lines 17 and 18 need Umbraco CMS 17.8.2 or 18.3.2 or later (was 17.8.0 and 18.3.0). Those versions fix GHSA-348f-9mg8-rhv4, where member property values could be read through the Examine members index. This package does not use that index; the floor only stops it being installed next to an unpatched CMS. Upgrading does not clean an existing index: after upgrading the CMS, rebuild the Members index (Settings, Examine Management).
+- Duplicate protection: Create Jira issue only reuses an issue that the connection's own Jira account created with the dedupe label already on it, and Add comment only reuses a comment written by that account. Before, an issue or comment carrying a copy of the marker could be returned as the earlier run's. When a match is found it reads that issue's history (or the account's identity, for comments), so it costs a few extra Jira reads.
+- Markdown comments and descriptions: long text with many line breaks converts in linear time (it was quadratic).
+- Sample gitleaks rules (`eng/gitleaks-jira-credentials.toml`): the JSON rule now also catches a token in a second or later named entry and in colon-joined keys (`"Umbraco:Automate:Jira:Credentials": …`, `"Credentials:<name>": …`, `"<name>:ApiToken": …`). Copy the updated rule into your site's `.gitleaks.toml`.
+- Credential helper contract 1.0.3: test scope for Automate 19. No change for users.
+- Build: CI pins the .NET SDK of each line, so lines 17 and 18 build on the 10 SDK even where a newer SDK is installed. No change for users.
+
 ## 19.0.0-rc.1
 
 Release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable.
@@ -9,16 +32,6 @@ Release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet veri
 - New 19 line for Umbraco CMS 19 and Umbraco Automate 19 (release candidates) on .NET 11. Lines 17 and 18 are unchanged.
 - Find content by Jira key uses Umbraco Search's draft content index on 19 (Examine is gone from Umbraco 19). The index only proposes candidates; the exact value check and the duplicate rule decide, as before. Members-only pages are still counted. If more than 2000 nodes look like the key, the step fails rather than guess. After upgrading a site, rebuild the Umbraco Search indexes.
 - The comment and issue format settings use the single-choice dropdown (`Umb.PropertyEditorUi.Dropdown.Single`) on 19, where the plain dropdown is always multi-select.
-
-## Unreleased
-
-- Credential helper contract 1.0.3: test scope for Automate 19. No change for users.
-- Lines 17 and 18 need Umbraco CMS 17.8.2 or 18.3.2 or later (was 17.8.0 and 18.3.0). Those versions fix GHSA-348f-9mg8-rhv4, where member property values could be read through the Examine members index. This package does not use that index; the floor only stops it being installed next to an unpatched CMS. Upgrading does not clean an existing index: after upgrading the CMS, rebuild the Members index (Settings, Examine Management).
-- Duplicate protection: Create Jira issue only reuses an issue that the connection's own Jira account created with the dedupe label already on it, and Add comment only reuses a comment written by that account. Before, an issue or comment carrying a copy of the marker could be returned as the earlier run's. When a match is found it reads that issue's history (or the account's identity, for comments), so it costs a few extra Jira reads.
-- Markdown comments and descriptions: long text with many line breaks converts in linear time (it was quadratic).
-- Find content by Jira key on 19: the search runs in the default language. A culture-variant node with no default-language version is not counted, so it cannot be found and does not count as a duplicate.
-- Sample gitleaks rules (`eng/gitleaks-jira-credentials.toml`): the JSON rule now also catches a token in a second or later named entry and in colon-joined keys (`"Umbraco:Automate:Jira:Credentials": …`, `"Credentials:<name>": …`, `"<name>:ApiToken": …`). Copy the updated rule into your site's `.gitleaks.toml`.
-- Build: CI pins the .NET SDK of each line, so lines 17 and 18 build on the 10 SDK even where a newer SDK is installed. No change for users.
 
 ## 18.0.0
 
