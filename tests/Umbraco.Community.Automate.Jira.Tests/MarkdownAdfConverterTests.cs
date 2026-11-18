@@ -18,6 +18,29 @@ public class MarkdownAdfConverterTests
         "paragraph", "headings", "bullet-list", "ordered-list", "nested-list", "code-block", "blockquote", "rule", "marks", "unsupported",
     ];
 
+    // Security audit 2026-11-18: soft-break lines were joined into one text node by repeated string concatenation,
+    // which is quadratic (64 KB of "a\n" allocated about 4 GB). The join must stay linear in the input.
+    [Fact]
+    public void ManySoftBreaks_JoinInLinearAllocation()
+    {
+        const int lines = 32767; // 65,534 bytes, just under AdfLimits.MaxInputBytes
+        var input = string.Concat(Enumerable.Repeat("a\n", lines));
+        var converter = new MarkdownAdfConverter();
+        converter.Convert("warm\nup");
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var doc = converter.Convert(input).Document!;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 200_000_000, $"Converting {input.Length} characters allocated {allocated:N0} bytes.");
+        var text = Assert.Single(doc["content"]![0]!["content"]!.AsArray());
+        // Joined into one node with a space per soft break, then cut at Jira's text limit as designed.
+        var joined = (string?)text!["text"];
+        Assert.Equal(AdfLimits.MaxTextLength, joined!.Length);
+        Assert.StartsWith("a a a a", joined, StringComparison.Ordinal);
+        Assert.EndsWith(AdfLimits.TruncatedSuffix, joined, StringComparison.Ordinal);
+    }
+
     private static AdfResult Convert(string markdown)
     {
         var result = new MarkdownAdfConverter().Convert(markdown);

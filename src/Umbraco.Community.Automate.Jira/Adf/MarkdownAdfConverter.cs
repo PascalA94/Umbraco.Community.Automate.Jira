@@ -153,6 +153,7 @@ internal sealed class MarkdownAdfConverter : IAdfConverter
         if (inline is not null)
         {
             Walk(inline, [], content, depth: 0);
+            content = JoinText(content);
         }
 
         if (content.Count > 0)
@@ -242,13 +243,8 @@ internal sealed class MarkdownAdfConverter : IAdfConverter
 
         var markArray = marks.Count == 0 ? null : new JsonArray([.. marks.Select(m => m.DeepClone())]);
 
-        // Join with the previous text node when the marks match, so soft breaks do not fragment a paragraph.
-        if (output.Count > 0 && output[^1] is JsonObject previous && (string?)previous["type"] == "text" && JsonNode.DeepEquals(previous["marks"], markArray))
-        {
-            previous["text"] = (string?)previous["text"] + text;
-            return;
-        }
-
+        // Not joined here: JoinText does that once per block (appending to the previous node's string on every soft
+        // break was quadratic, security audit 2026-11-18).
         var node = new JsonObject { ["type"] = "text", ["text"] = text };
         if (markArray is not null)
         {
@@ -256,6 +252,51 @@ internal sealed class MarkdownAdfConverter : IAdfConverter
         }
 
         output.Add(node);
+    }
+
+    // Joins adjacent text nodes whose marks match, so soft breaks do not fragment a paragraph. One StringBuilder per run
+    // keeps it linear in the input.
+    private static JsonArray JoinText(JsonArray nodes)
+    {
+        var items = nodes.ToList();
+        nodes.Clear();
+        var joined = new JsonArray();
+        JsonObject? run = null;
+        StringBuilder? runText = null;
+
+        foreach (var item in items)
+        {
+            if (item is JsonObject node && (string?)node["type"] == "text")
+            {
+                if (run is not null && JsonNode.DeepEquals(run["marks"], node["marks"]))
+                {
+                    runText!.Append((string?)node["text"]);
+                    continue;
+                }
+
+                Flush();
+                run = node;
+                runText = new StringBuilder((string?)node["text"]);
+                joined.Add(node);
+                continue;
+            }
+
+            Flush();
+            joined.Add(item);
+        }
+
+        Flush();
+        return joined;
+
+        void Flush()
+        {
+            if (run is not null)
+            {
+                run["text"] = runText!.ToString();
+                run = null;
+                runText = null;
+            }
+        }
     }
 
     private static void AddParagraph(JsonArray output, string text)

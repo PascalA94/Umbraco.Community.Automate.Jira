@@ -24,8 +24,14 @@ public class AddCommentActionTests
     private static string ExpectedMarker(ActionRig rig, AddCommentSettings settings) =>
         DedupeKey.CommentMarker(DedupeKey.Effective(settings.DedupeKey, rig.LastContext!, [settings.IssueKey, settings.Body]), settings.IssueKey.Trim().ToUpperInvariant(), rig.ConnectionId);
 
-    private static string ListingWith(string id, string marker) =>
-        $$$"""{"comments":[{"id":"9","properties":[]},{"id":"{{{id}}}","properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]}]}""";
+    // The connection's own Jira account, as /myself reports it.
+    private const string ServiceAccount = "svc-1";
+    private const string MyselfJson = """{"accountId":"svc-1","displayName":"Umbraco"}""";
+
+    private static string ListingWith(string id, string marker, string author = ServiceAccount) =>
+        $$$"""{"comments":[{"id":"9","properties":[]},{"id":"{{{id}}}","author":{"accountId":"{{{author}}}"},"properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]}]}""";
+
+    private static bool IsMyself(RecordedRequest r) => r.Method == HttpMethod.Get && r.Uri.AbsolutePath.EndsWith("/myself", StringComparison.Ordinal);
 
     [Fact]
     public void Action_HasPermanentAliasAndConnection()
@@ -162,7 +168,7 @@ public class AddCommentActionTests
 
         // Automate retries the same step of the same run; Jira had saved the first comment.
         var marker = ExpectedMarker(rig, Settings());
-        rig.Enqueue(HttpStatusCode.OK, ListingWith("10500", marker));
+        rig.Enqueue(HttpStatusCode.OK, ListingWith("10500", marker)).EnqueueJson(HttpStatusCode.OK, MyselfJson);
         var second = await rig.RunAsync(Action(rig), Settings());
 
         Assert.Equal(ActionResultStatus.Success, second.Status);
@@ -191,7 +197,7 @@ public class AddCommentActionTests
         var settings = Settings();
         settings.DedupeKey = "  entry-42 ";
         var marker = DedupeKey.CommentMarker("entry-42", "SBX-1", rig.ConnectionId);
-        rig.Enqueue(HttpStatusCode.OK, ListingWith("10777", marker));
+        rig.Enqueue(HttpStatusCode.OK, ListingWith("10777", marker)).EnqueueJson(HttpStatusCode.OK, MyselfJson);
         rig.RunId = Guid.NewGuid();
 
         var result = await rig.RunAsync(Action(rig), settings);
@@ -217,21 +223,72 @@ public class AddCommentActionTests
     }
 
     [Fact]
-    public async Task Dedupe_MarkerCopiedOntoNewerComment_ReturnsOldest()
+    public async Task Dedupe_TwoOwnMarkedComments_ReturnsOldest()
     {
-        // M2-SEC-01: a copied marker can only be on a newer comment, so the oldest match is the one this step wrote.
+        // Two of the account's own comments with the marker (a lost response, then a retry that posted again): the
+        // oldest is the one the step first wrote.
         var rig = new ActionRig();
         var settings = Settings();
         settings.DedupeKey = "approval-notice";
         var marker = DedupeKey.CommentMarker("approval-notice", "SBX-1", rig.ConnectionId);
         rig.Enqueue(
             HttpStatusCode.OK,
-            $$$"""{"comments":[{"id":"900","properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]},{"id":"500","properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]}]}""");
+            $$$"""{"comments":[{"id":"900","author":{"accountId":"svc-1"},"properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]},{"id":"500","author":{"accountId":"svc-1"},"properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]}]}""")
+            .EnqueueJson(HttpStatusCode.OK, MyselfJson);
 
         var result = await rig.RunAsync(Action(rig), settings);
 
         Assert.Equal("500", Assert.IsType<AddCommentOutput>(result.OutputData).CommentId);
         Assert.DoesNotContain(rig.Fake.Requests, IsPost);
+    }
+
+    // Security audit 2026-11-18: anyone can set the marker property on their own comment, including an older one, so
+    // "oldest wins" alone is not enough. Only the connection's own account's comments count.
+    [Fact]
+    public async Task Dedupe_MarkerOnOtherAuthorsOlderComment_IsIgnored()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "approval-notice";
+        var marker = DedupeKey.CommentMarker("approval-notice", "SBX-1", rig.ConnectionId);
+        rig.Enqueue(
+            HttpStatusCode.OK,
+            $$$"""{"comments":[{"id":"900","author":{"accountId":"svc-1"},"properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]},{"id":"500","author":{"accountId":"someone-else"},"properties":[{"key":"community.jira.dedupe","value":{"key":"{{{marker}}}"}}]}]}""")
+            .EnqueueJson(HttpStatusCode.OK, MyselfJson);
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        Assert.Equal("900", Assert.IsType<AddCommentOutput>(result.OutputData).CommentId);
+        Assert.DoesNotContain(rig.Fake.Requests, IsPost);
+    }
+
+    [Fact]
+    public async Task Dedupe_OnlyOtherAuthorsMarkedComment_PostsAnyway()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "approval-notice";
+        var marker = DedupeKey.CommentMarker("approval-notice", "SBX-1", rig.ConnectionId);
+        rig.Enqueue(HttpStatusCode.OK, ListingWith("500", marker, author: "someone-else"))
+            .EnqueueJson(HttpStatusCode.OK, MyselfJson)
+            .EnqueueJson(HttpStatusCode.Created, CreatedJson);
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        Assert.False(Assert.IsType<AddCommentOutput>(result.OutputData).WasExisting);
+        Assert.Single(rig.Fake.Requests, IsPost);
+    }
+
+    // No marked comment: the common case costs no /myself call.
+    [Fact]
+    public async Task Dedupe_NoMarkedComment_DoesNotCallMyself()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, NoComments).EnqueueJson(HttpStatusCode.Created, CreatedJson);
+
+        await rig.RunAsync(Action(rig), Settings());
+
+        Assert.DoesNotContain(rig.Fake.Requests, IsMyself);
     }
 
     [Fact]
@@ -280,7 +337,8 @@ public class AddCommentActionTests
 
     [Theory]
     [InlineData("""{"unexpected":true}""")]
-    [InlineData("""{"comments":[{"id":"not-a-number","properties":[{"key":"community.jira.dedupe","value":{"key":"MARKER"}}]}]}""")]
+    [InlineData("""{"comments":[{"id":"not-a-number","author":{"accountId":"svc-1"},"properties":[{"key":"community.jira.dedupe","value":{"key":"MARKER"}}]}]}""")]
+    [InlineData("""{"comments":[{"id":"10500","properties":[{"key":"community.jira.dedupe","value":{"key":"MARKER"}}]}]}""")]
     public async Task AddComment_ListingUnreadable_NoPost(string listing)
     {
         var rig = new ActionRig();
@@ -292,7 +350,8 @@ public class AddCommentActionTests
         var marker = ExpectedMarker(rig, settings);
         var before = rig.Fake.Requests.Count(IsPost);
 
-        rig.Enqueue(HttpStatusCode.OK, listing.Replace("MARKER", marker, StringComparison.Ordinal));
+        // Ours by marker but with an unreadable id or author: posting again could duplicate it, so fail instead.
+        rig.Enqueue(HttpStatusCode.OK, listing.Replace("MARKER", marker, StringComparison.Ordinal)).EnqueueJson(HttpStatusCode.OK, MyselfJson);
         var result = await rig.RunAsync(Action(rig), settings);
 
         Assert.Equal(StepRunErrorCategory.InvalidResponse, result.ErrorCategory);
