@@ -130,7 +130,7 @@ The connection and the webhook authenticator store only the name (`agency`, `age
 
 All of these are required:
 
-- A dedicated Atlassian account for this site only, never a person's account.
+- A dedicated Atlassian account for this site only, never a person's account, and not used by any other integration or Jira Automation rule. Duplicate protection trusts what this account created.
 - Jira product access only, with project roles only on the projects the automations use.
 - Never a Jira admin or an organisation admin.
 - A **scoped** API token used through the Atlassian gateway (set the connection's Cloud ID), with an expiry of 90 days or less.
@@ -215,6 +215,7 @@ Outputs: `ContentKey`, `Name`, `ContentTypeAlias`, `IsPublished`, `UpdateDate`.
 
 - It fails unless exactly one node matches. Duplicates are counted before permissions, so a duplicate the service account cannot see still stops the run.
 - It searches drafts too: through the internal Examine index on 17 and 18, and through the Umbraco Search draft content index on 19. The count is only as fresh as that index: a node saved a moment ago, or an index being rebuilt, may not be counted yet. On 19, rebuild the Umbraco Search indexes after upgrading; until then the index is empty and the step reports no match.
+- On 19 the search runs in the default language: a culture-variant node with no default-language version is not counted, so it is neither found nor counted as a duplicate. Keep the key on invariant content types or give every node a default-language version.
 - On 19 the index proposes every node whose value starts like the key (`SUP-17` also offers `SUP-170`), and the exact check then decides. If more than 2000 nodes look like the key, the step fails rather than guess; use a longer key.
 - **Keep the key unique.** Use an invariant Textstring property called `jiraKey` on the content types involved, filled in only by people who may publish them, and check for duplicates when you copy a node (the copy keeps the key).
 
@@ -222,6 +223,7 @@ Outputs: `ContentKey`, `Name`, `ContentTypeAlias`, `IsPublished`, `UpdateDate`.
 
 Automate retries failed steps. To stop a retry creating a second issue or comment, Create issue and Add comment always check first:
 
+- Only issues and comments that the connection's own Jira account created count as the earlier one. An issue counts only if its `cj-dedupe-…` label was there when it was created, so a label someone added later (for example copied from another issue) is ignored.
 - Each step works out a key. With no Dedupe key set, the key is made from the automation, run, step, the For each position and the step's inputs. Retries of the same step resolve the same key, so they find what the first attempt created.
 - Set **Dedupe key** to widen this across runs, for example to a form entry ID, so a re-run returns the same issue. Automate's **Replay** starts a new run, so without a Dedupe key, replaying a completed run creates a second issue; with one, the replay returns the first issue with `WasExisting` true. Prefer non-personal values: only a short keyed hash of the key is sent to Jira (as a `cj-dedupe-…` label on issues, and as a comment property on comments), but anyone with backoffice access could recompute it.
 - **Inside a For each loop**, set a per-item Dedupe key. Without one, two items in different positions get different keys; with a constant Dedupe key, every item gets the first item's issue.
@@ -232,6 +234,8 @@ Residuals:
 - **Search lag.** Jira's search is eventually consistent. In tests the label was searchable within 0.4 seconds, well inside Automate's first retry delay of 30 seconds, but a retry inside that lag could still create a duplicate.
 - **Comments: 50 newest only.** Add comment checks the 50 newest comments on the issue. On a very busy issue an older match is missed.
 - **Concurrent runs** with the same Dedupe key at the same moment are not serialised, so both can create.
+- **Anyone with Edit All Comments** in the project (usually project administrators) can set the marker on the account's own older comment, so the comment check does not hold against them. The account must also be dedicated (see [Service account requirements](#service-account-requirements)).
+- **Changing the connection's Jira account** ends cross-run protection for what the previous account created: the next run creates a new issue or comment.
 
 ## Text formats
 

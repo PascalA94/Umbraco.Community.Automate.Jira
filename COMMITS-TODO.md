@@ -804,3 +804,16 @@ Base `main` at `f8f0d61` (the 19.0.0-rc.1 release).
 - Reviews: qa-reviewer pass (minors: test-only SQL client downgrade from the CMS graph, already clean in vulnerable-check; CodeQL unpinned but builds nothing; no CI-only guard in `pin-sdk.sh` and no CONTRIBUTING mention; deferred). security-analyst approve with conditions, no Critical or High; OSV over the 407 changed lock versions: 0. Conditions done: F1, the CHANGELOG and README say to rebuild the Members index after upgrading; F2, publish checks the tag is on main before any repository script runs.
 - Not done in 5b, still open: the D11 `security-audit` full run (review.md) did not happen before `v19.0.0-rc.1`; the security-analyst diff review was recorded in its place. Run it in a fresh session against `main` at `f8f0d61`; unlist `19.0.0-rc.1` if it finds a Critical or High.
 - Release: the floors reach users only with a new 17/18 version (`v18.0.1` packs 18.0.1 and 17.0.1). Add its `## 18.0.1` heading at release time.
+
+## Follow-up: security audit fixes (2026-11-18, branch `fix/audit-leads`, uncommitted)
+
+Base `main` at `f361946`. Source: the post-release `security-audit` run on `f8f0d61` (no Critical, nothing confirmed, partial coverage). The full report and the decisions on the framework leads are kept privately, outside this repository.
+
+- Duplicate protection, Create Jira issue: the search adds `creator = currentUser() ORDER BY created ASC` (up to 10 candidates) and reads each candidate's changelog; a candidate whose history shows the `cj-dedupe-` label added after creation (any case) is skipped, and none clean means a new issue. Paging stops only on `isLast: true` or the total; a page with neither, or a history over 20 pages, counts as tampered. A changelog read failure fails the step without creating (as a failed search does).
+- Duplicate protection, Add comment: a marked comment counts only if its author is the connection's own account (`/myself`, read only when a marked comment exists); a marked comment without a readable author fails the step. The old "copies can only be newer" assumption is gone.
+- Markdown converter: adjacent text nodes are joined in one linear pass; 64 KB of short lines allocated 4.3 GB before (test bounds it), output unchanged (golden files pass).
+- Docs: README (dedicated account, wording, residuals for Edit All Comments and account changes, default-culture limit on 19), CHANGELOG (Unreleased), SECURITY.md residual list.
+- Tests: every new behaviour seen RED first. Full suites: 17 and 18 `945` + `11`, 19 `956` + `18`.
+- Reviews: qa-reviewer pass (found the comment dedupe gap, fixed); security-analyst first review: the creator clause alone only narrowed the lead (conditions C1 to C4); verifying review: conditions met, then case-insensitive label match and strict changelog paging added (RED then GREEN).
+- Not verified here (live Jira): release-checks contract tests exercise the new search and changelog read; a sandbox check that an issue's creator cannot be changed, that JQL `labels` ignores case, and that a non-author can set a property on their own comment.
+- Still open: the sample gitleaks rules (`eng/gitleaks-jira-credentials.toml`, two Low gaps), not read by the build session; Dependabot alerts and security updates are switched off on the repository.

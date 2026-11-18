@@ -26,7 +26,7 @@ The package also:
 - accepts a Jira webhook only with a valid `X-Hub-Signature`, a fresh timestamp and a body not seen before (per server);
 - documents Jira-driven publishing only with Request Approval, and seeds it disabled.
 
-The known residuals are listed in the [README](https://github.com/PascalA94/Umbraco.Community.Automate.Jira#readme): the per-server replay memory, the dedupe search lag, and the moment between the approval re-check and publishing.
+The known residuals are listed in the [README](https://github.com/PascalA94/Umbraco.Community.Automate.Jira#readme): the per-server replay memory, the dedupe search lag, duplicate protection against someone with Edit All Comments, and the moment between the approval re-check and publishing.
 
 ## Handling an incident
 

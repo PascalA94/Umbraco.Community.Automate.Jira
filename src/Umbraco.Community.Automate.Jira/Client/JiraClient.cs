@@ -129,8 +129,13 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
             throw new ArgumentException("A dedupe marker is 16 lower-case hex characters.", nameof(marker));
         }
 
-        var jql = $"project = {JiraIdentifiers.QuoteJql(projectKey)} AND labels = {JiraIdentifiers.QuoteJql("cj-dedupe-" + marker)}";
-        var body = new JsonObject { ["jql"] = jql, ["maxResults"] = 1, ["fields"] = new JsonArray("key") };
+        // Two checks keep a copied marker label from redirecting a run (security audit 2026-11-18). creator =
+        // currentUser(): nobody can change an issue's creator, so only issues this account created qualify. And the
+        // changelog: this package puts the label on in the create request, so on the real issue it never shows up as a
+        // label change; anyone who copies it onto another issue leaves a changelog entry that only admins can remove.
+        var label = "cj-dedupe-" + marker;
+        var jql = $"project = {JiraIdentifiers.QuoteJql(projectKey)} AND labels = {JiraIdentifiers.QuoteJql(label)} AND creator = currentUser() ORDER BY created ASC";
+        var body = new JsonObject { ["jql"] = jql, ["maxResults"] = MaxDedupeCandidates, ["fields"] = new JsonArray("key") };
 
         // A failure here throws, and the action then fails without creating anything (F-05).
         using var doc = await SendAsync(target, HttpMethod.Post, "/rest/api/3/search/jql", body: body, ct: ct)
@@ -145,11 +150,95 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
 
         foreach (var issue in issues.EnumerateArray())
         {
-            return ReadIssue(issue) ?? throw JiraResponseHandler.InvalidResponse();
+            var candidate = ReadIssue(issue) ?? throw JiraResponseHandler.InvalidResponse();
+            if (!await LabelAddedAfterCreateAsync(target, candidate.Id, label, ct))
+            {
+                return candidate;
+            }
         }
 
+        // None of ours: creating a new issue is the safe outcome.
         return null;
     }
+
+    /// <summary>Candidates read from the dedupe search; more than one only after a copy or a race.</summary>
+    internal const int MaxDedupeCandidates = 10;
+
+    private const int ChangelogPageSize = 100;
+    private const int MaxChangelogPages = 20;
+
+    // True when the issue's history shows the label being added after creation. A history longer than
+    // MaxChangelogPages pages counts as tampered (the run creates a new issue rather than adopt it); an unreadable one
+    // throws, so the step fails without creating anything.
+    private async Task<bool> LabelAddedAfterCreateAsync(JiraTarget target, string issueId, string label, CancellationToken ct)
+    {
+        for (var page = 0; page < MaxChangelogPages; page++)
+        {
+            // A failure throws, and the action then fails without creating anything, as for the search (F-05).
+            using var doc = await SendAsync(
+                target,
+                HttpMethod.Get,
+                "/rest/api/3/issue/{id}/changelog",
+                new Dictionary<string, string> { ["id"] = issueId },
+                query: $"startAt={page * ChangelogPageSize}&maxResults={ChangelogPageSize}",
+                notFoundSubject: "Issue " + issueId,
+                ct: ct) ?? throw JiraResponseHandler.InvalidResponse();
+
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("values", out var histories)
+                || histories.ValueKind != JsonValueKind.Array)
+            {
+                throw JiraResponseHandler.InvalidResponse();
+            }
+
+            foreach (var history in histories.EnumerateArray())
+            {
+                if (history.ValueKind != JsonValueKind.Object
+                    || !history.TryGetProperty("items", out var items)
+                    || items.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var item in items.EnumerateArray())
+                {
+                    var field = ReadString(item, "fieldId") ?? ReadString(item, "field");
+                    if (string.Equals(field, "labels", StringComparison.OrdinalIgnoreCase)
+                        && HasLabel(ReadString(item, "toString"), label)
+                        && !HasLabel(ReadString(item, "fromString"), label))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            // Read to the end only when Jira says so (isLast) or the total is reached. A page with neither does not prove
+            // the rest of the history is clean, so the candidate counts as tampered.
+            if (root.TryGetProperty("isLast", out var isLast) && isLast.ValueKind == JsonValueKind.True)
+            {
+                return false;
+            }
+
+            if (root.TryGetProperty("total", out var total) && total.TryGetInt32(out var count)
+                && (page * ChangelogPageSize) + histories.GetArrayLength() >= count)
+            {
+                return false;
+            }
+
+            if (!root.TryGetProperty("isLast", out isLast) || isLast.ValueKind != JsonValueKind.False)
+            {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    // Jira lists labels in a history item as one space-separated string. Case is ignored because Jira's label search
+    // ignores it, so an upper-case copy would still be found.
+    private static bool HasLabel(string? labels, string label) =>
+        labels is not null && labels.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(label, StringComparer.OrdinalIgnoreCase);
 
     private static JiraCreatedIssue? ReadIssue(JsonElement element)
     {
@@ -212,12 +301,27 @@ internal sealed class JiraClient(IHttpClientFactory httpClientFactory, ILogger<J
             throw JiraResponseHandler.InvalidResponse();
         }
 
-        // The listing is newest first. Anyone who can edit a comment can copy the marker onto it, but only onto a
-        // comment newer than the one this step wrote, so the oldest match wins (M2 security review SEC-01).
+        // Anyone can set the marker property on their own comment, older ones included, so only comments by this
+        // connection's own account count (security audit 2026-11-18; the author cannot be changed). Among those, the
+        // oldest is the one the step first wrote. /myself is read only when a marked comment exists.
         JsonElement? oldest = null;
+        string? accountId = null;
         foreach (var comment in comments.EnumerateArray())
         {
-            if (HasMarker(comment, dedupeMarker))
+            if (!HasMarker(comment, dedupeMarker))
+            {
+                continue;
+            }
+
+            accountId ??= (await GetMyselfAsync(target, ct)).AccountId;
+            var author = comment.TryGetProperty("author", out var authorElement) ? ReadString(authorElement, "accountId") : null;
+            if (string.IsNullOrWhiteSpace(author))
+            {
+                // Ours by marker but no readable author: posting again could duplicate it, so fail instead.
+                throw JiraResponseHandler.InvalidResponse();
+            }
+
+            if (string.Equals(author, accountId, StringComparison.Ordinal))
             {
                 oldest = comment;
             }

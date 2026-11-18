@@ -11,12 +11,19 @@ public class CreateIssueDedupeTests
     private const string CreatedJson = """{"id":"10042","key":"SBX-17"}""";
     private const string EmptySearch = """{"issues":[]}""";
     private const string FoundSearch = """{"issues":[{"id":"10042","key":"SBX-17","fields":{}}]}""";
+    private const string CleanChangelog = """{"startAt":0,"maxResults":100,"total":0,"isLast":true,"values":[]}""";
 
     private static CreateIssueSettings Settings(string summary = "Summary") => new() { ProjectKey = "SBX", IssueType = "10002", Summary = summary };
 
     private static CreateIssueAction Action(ActionRig rig) => new(rig.Infrastructure, rig.Scopes);
 
     private static bool IsSearch(RecordedRequest r) => r.Method == HttpMethod.Post && r.Uri.AbsolutePath.EndsWith("/rest/api/3/search/jql", StringComparison.Ordinal);
+
+    private static bool IsChangelog(RecordedRequest r) => r.Method == HttpMethod.Get && r.Uri.AbsolutePath.EndsWith("/changelog", StringComparison.Ordinal);
+
+    // A changelog in which someone added the marker label after the issue was created.
+    private static string LabelAddedChangelog(string label) =>
+        $$$"""{"startAt":0,"maxResults":100,"total":1,"isLast":true,"values":[{"id":"1","items":[{"field":"labels","fieldId":"labels","fromString":"triage","toString":"triage {{{label}}}"}]}]}""";
 
     private static bool IsCreate(RecordedRequest r) => r.Method == HttpMethod.Post && r.Uri.AbsolutePath.EndsWith("/rest/api/3/issue", StringComparison.Ordinal);
 
@@ -34,8 +41,11 @@ public class CreateIssueDedupeTests
 
         var marker = ExpectedMarker(rig, settings);
         var search = JsonNode.Parse(rig.Fake.Requests.Single(IsSearch).Body!)!;
-        Assert.Equal($"project = \"SBX\" AND labels = \"cj-dedupe-{marker}\"", (string?)search["jql"]);
-        Assert.Equal(1, (int?)search["maxResults"]);
+        // creator = currentUser(): the creator field cannot be edited, so an issue someone else created never matches
+        // (security audit 2026-11-18). A label copied onto another issue this account created is caught by the changelog
+        // check (Dedupe_LabelAddedAfterCreate_IsNotAdopted). Oldest first, a handful of candidates.
+        Assert.Equal($"project = \"SBX\" AND labels = \"cj-dedupe-{marker}\" AND creator = currentUser() ORDER BY created ASC", (string?)search["jql"]);
+        Assert.Equal(10, (int?)search["maxResults"]);
         var labels = JsonNode.Parse(rig.Fake.Requests.Single(IsCreate).Body!)!["fields"]!["labels"]!.AsArray();
         Assert.Contains($"cj-dedupe-{marker}", labels.Select(l => (string?)l));
     }
@@ -56,7 +66,7 @@ public class CreateIssueDedupeTests
     public async Task Dedupe_ExistingIssue_ReturnsItWithoutPost()
     {
         var rig = new ActionRig();
-        rig.Enqueue(HttpStatusCode.OK, FoundSearch);
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch).EnqueueJson(HttpStatusCode.OK, CleanChangelog);
 
         var result = await rig.RunAsync(Action(rig), Settings());
 
@@ -65,6 +75,154 @@ public class CreateIssueDedupeTests
         Assert.True(output.WasExisting);
         Assert.Equal("SBX-17", output.IssueKey);
         Assert.Equal("https://acme.atlassian.net/browse/SBX-17", output.IssueUrl);
+        Assert.DoesNotContain(rig.Fake.Requests, IsCreate);
+    }
+
+    // Security audit 2026-11-18: anyone who can edit issues can move the marker label onto another issue the service
+    // account created. This package puts the label on in the create request itself, so a label that the changelog shows
+    // being added later was copied, and that issue is never adopted. A new issue is created instead.
+    [Fact]
+    public async Task Dedupe_LabelAddedAfterCreate_IsNotAdopted()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "form-123";
+        var marker = DedupeKey.Marker("form-123", rig.ConnectionId);
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch)
+            .EnqueueJson(HttpStatusCode.OK, LabelAddedChangelog("cj-dedupe-" + marker))
+            .EnqueueJson(HttpStatusCode.Created, """{"id":"10043","key":"SBX-18"}""");
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        var output = Assert.IsType<CreateIssueOutput>(result.OutputData);
+        Assert.False(output.WasExisting);
+        Assert.Equal("SBX-18", output.IssueKey);
+        Assert.Single(rig.Fake.Requests, IsCreate);
+    }
+
+    // The candidates come oldest first; a tampered one is skipped and the next clean one is the earlier run's issue.
+    [Fact]
+    public async Task Dedupe_TamperedCandidateSkipped_CleanOneReturned()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "form-123";
+        var marker = DedupeKey.Marker("form-123", rig.ConnectionId);
+        rig.Enqueue(HttpStatusCode.OK, """{"issues":[{"id":"10040","key":"SBX-15","fields":{}},{"id":"10042","key":"SBX-17","fields":{}}]}""")
+            .EnqueueJson(HttpStatusCode.OK, LabelAddedChangelog("cj-dedupe-" + marker))
+            .EnqueueJson(HttpStatusCode.OK, CleanChangelog);
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        Assert.Equal("SBX-17", Assert.IsType<CreateIssueOutput>(result.OutputData).IssueKey);
+        Assert.DoesNotContain(rig.Fake.Requests, IsCreate);
+        Assert.Equal(2, rig.Fake.Requests.Count(IsChangelog));
+    }
+
+    // Jira's label search ignores case, so an upper-case copy is still found and must still be caught.
+    [Fact]
+    public async Task Dedupe_UpperCaseCopy_IsNotAdopted()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "form-123";
+        var marker = DedupeKey.Marker("form-123", rig.ConnectionId);
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch)
+            .EnqueueJson(HttpStatusCode.OK, LabelAddedChangelog(("cj-dedupe-" + marker).ToUpperInvariant()))
+            .EnqueueJson(HttpStatusCode.Created, """{"id":"10043","key":"SBX-18"}""");
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        Assert.False(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+        Assert.Single(rig.Fake.Requests, IsCreate);
+    }
+
+    [Fact]
+    public async Task Dedupe_LabelAddedOnSecondChangelogPage_IsNotAdopted()
+    {
+        var rig = new ActionRig();
+        var settings = Settings();
+        settings.DedupeKey = "form-123";
+        var marker = DedupeKey.Marker("form-123", rig.ConnectionId);
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch)
+            .EnqueueJson(HttpStatusCode.OK, """{"startAt":0,"maxResults":100,"total":101,"isLast":false,"values":[]}""")
+            .EnqueueJson(HttpStatusCode.OK, LabelAddedChangelog("cj-dedupe-" + marker))
+            .EnqueueJson(HttpStatusCode.Created, """{"id":"10043","key":"SBX-18"}""");
+
+        var result = await rig.RunAsync(Action(rig), settings);
+
+        Assert.False(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+        Assert.Equal(2, rig.Fake.Requests.Count(IsChangelog));
+    }
+
+    // A page that says neither isLast nor total does not prove the rest of the history is clean.
+    [Fact]
+    public async Task Dedupe_ChangelogWithoutPagingInfo_IsNotAdopted()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch)
+            .EnqueueJson(HttpStatusCode.OK, """{"values":[]}""")
+            .EnqueueJson(HttpStatusCode.Created, """{"id":"10043","key":"SBX-18"}""");
+
+        var result = await rig.RunAsync(Action(rig), Settings());
+
+        Assert.False(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+    }
+
+    // A history longer than the page cap is not read to the end, so the candidate is not adopted.
+    [Fact]
+    public async Task Dedupe_ChangelogOverPageCap_IsNotAdopted()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch);
+        for (var page = 0; page < 20; page++)
+        {
+            rig.Fake.EnqueueJson(HttpStatusCode.OK, """{"startAt":0,"maxResults":100,"total":5000,"isLast":false,"values":[]}""");
+        }
+
+        rig.Fake.EnqueueJson(HttpStatusCode.Created, """{"id":"10043","key":"SBX-18"}""");
+
+        var result = await rig.RunAsync(Action(rig), Settings());
+
+        Assert.False(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+        Assert.Equal(20, rig.Fake.Requests.Count(IsChangelog));
+    }
+
+    // The total tells the last page even without isLast.
+    [Fact]
+    public async Task Dedupe_ChangelogTotalReached_IsAdopted()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch).EnqueueJson(HttpStatusCode.OK, """{"startAt":0,"maxResults":100,"total":0,"values":[]}""");
+
+        var result = await rig.RunAsync(Action(rig), Settings());
+
+        Assert.True(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+    }
+
+    // A label change for some other label is not a copy of ours.
+    [Fact]
+    public async Task Dedupe_OtherLabelChanges_StillAdopted()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch).EnqueueJson(HttpStatusCode.OK, LabelAddedChangelog("triage-2"));
+
+        var result = await rig.RunAsync(Action(rig), Settings());
+
+        Assert.True(Assert.IsType<CreateIssueOutput>(result.OutputData).WasExisting);
+        Assert.DoesNotContain(rig.Fake.Requests, IsCreate);
+    }
+
+    // As with a failed search (F-05): if the changelog cannot be read, nothing is created.
+    [Fact]
+    public async Task Dedupe_ChangelogFails_NoPost()
+    {
+        var rig = new ActionRig();
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch).EnqueueJson(HttpStatusCode.Forbidden, """{"errorMessages":["no"]}""");
+
+        var result = await rig.RunAsync(Action(rig), Settings());
+
+        Assert.NotEqual(ActionResultStatus.Success, result.Status);
         Assert.DoesNotContain(rig.Fake.Requests, IsCreate);
     }
 
@@ -78,7 +236,7 @@ public class CreateIssueDedupeTests
         Assert.Equal(StepRunErrorCategory.ServiceUnavailable, first.ErrorCategory);
 
         // Automate's retry runs the same step of the same run again.
-        rig.Enqueue(HttpStatusCode.OK, FoundSearch);
+        rig.Enqueue(HttpStatusCode.OK, FoundSearch).EnqueueJson(HttpStatusCode.OK, CleanChangelog);
         var second = await rig.RunAsync(Action(rig), Settings());
 
         Assert.Equal(ActionResultStatus.Success, second.Status);
@@ -196,7 +354,8 @@ public class CreateIssueDedupeTests
     public async Task Dedupe_UserKey_FindsAcrossRuns()
     {
         var rig = new ActionRig();
-        rig.Enqueue(HttpStatusCode.OK, EmptySearch).EnqueueJson(HttpStatusCode.Created, CreatedJson).EnqueueJson(HttpStatusCode.OK, FoundSearch);
+        rig.Enqueue(HttpStatusCode.OK, EmptySearch).EnqueueJson(HttpStatusCode.Created, CreatedJson).EnqueueJson(HttpStatusCode.OK, FoundSearch)
+            .EnqueueJson(HttpStatusCode.OK, CleanChangelog);
         var settings = Settings();
         settings.DedupeKey = "form-123";
 
