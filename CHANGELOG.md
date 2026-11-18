@@ -17,6 +17,7 @@ Release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet veri
 - Duplicate protection: Create Jira issue only reuses an issue that the connection's own Jira account created with the dedupe label already on it, and Add comment only reuses a comment written by that account. Before, an issue or comment carrying a copy of the marker could be returned as the earlier run's. When a match is found it reads that issue's history (or the account's identity, for comments), so it costs a few extra Jira reads.
 - Markdown comments and descriptions: long text with many line breaks converts in linear time (it was quadratic).
 - Find content by Jira key on 19: the search runs in the default language. A culture-variant node with no default-language version is not counted, so it cannot be found and does not count as a duplicate.
+- Sample gitleaks rules (`eng/gitleaks-jira-credentials.toml`): the JSON rule now also catches a token in a second or later named entry and in colon-joined keys (`"Umbraco:Automate:Jira:Credentials": …`, `"Credentials:<name>": …`, `"<name>:ApiToken": …`). Copy the updated rule into your site's `.gitleaks.toml`.
 - Build: CI pins the .NET SDK of each line, so lines 17 and 18 build on the 10 SDK even where a newer SDK is installed. No change for users.
 
 ## 18.0.0
