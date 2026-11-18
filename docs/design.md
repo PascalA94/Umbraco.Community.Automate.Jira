@@ -5,7 +5,7 @@
 | Package ID | `Umbraco.Community.Automate.Jira` |
 | Marketplace title | "Jira for Umbraco Automate" |
 | Owner | Pascal Meyer (own GitHub repo, own NuGet account) |
-| Targets | Umbraco CMS `[17.8.0,18)` and `[18.3.0,19)`; Umbraco Automate 17.x (floor 17.5.1) and 18.x (floor 18.5.1) |
+| Targets | Umbraco CMS `[17.8.2,18)` and `[18.3.2,19)` (raised from 17.8.0 and 18.3.0 for GHSA-348f-9mg8-rhv4, 2026-11-18); Umbraco Automate 17.x (floor 17.5.1) and 18.x (floor 18.5.1) |
 | Jira | Cloud only |
 | Status | Design. Nothing built. Updated for the security review and the F-02 council verdict (see "Security review changes (2026-10-30)"). |
 | Written | 2026-10-29, revised 2026-10-30 |
@@ -92,8 +92,8 @@ Everything reflects 2026-10-29. Automate moves fast. Re-check the [verified] fac
 - Automate ships parallel lines: 17.0.0–17.5.1 and 18.x up to 18.5.1 [verified, NuGet].
 - Community Automate packages are locked to one major: `[17.0.0,18.0.0)` or `[18.0.0,19.0.0)` [verified].
 - Our ranges, closed both ends:
-  - 18 line: `Umbraco.Automate.Core [18.5.1, 19.0.0)` and `Umbraco.Cms.Core`, `Umbraco.Cms.Infrastructure` `[18.3.0, 19.0.0)`.
-  - 17 line: `Umbraco.Automate.Core [17.5.1, 18.0.0)` and `Umbraco.Cms.Core`, `Umbraco.Cms.Infrastructure` `[17.8.0, 18.0.0)`.
+  - 18 line: `Umbraco.Automate.Core [18.5.1, 19.0.0)` and `Umbraco.Cms.Core`, `Umbraco.Cms.Infrastructure` `[18.3.2, 19.0.0)`.
+  - 17 line: `Umbraco.Automate.Core [17.5.1, 18.0.0)` and `Umbraco.Cms.Core`, `Umbraco.Cms.Infrastructure` `[17.8.2, 18.0.0)`.
   - Lower a floor only after testing on that older minor. The CMS floors are a portfolio decision (Pascal, 2026-10-30) and are never lowered.
 - **Why the CMS floors are explicit.** The CMS floors cover the 27 Oct 2026 security round (start-node bypasses) and the disabled-user token reissue fix (portfolio README). Automate does not enforce them: every Automate.Core 17.x nuspec allows CMS `[17.4.0 or 17.6.0, 17.999.999)`, and every 18.x nuspec allows CMS `>= 18.0.0` or `>= 18.1.0` with no upper bound [HIGH - tool output, NuGet flat-container nuspecs, 2026-10-30]. So the package references the CMS packages directly at the floor. It also needs them for real now: Find content by Jira key (6.7) uses Examine and `IContentService`.
 - **Automate floors.** Every published Automate.Core release on each line accepts our CMS floor, so the CMS floor does not push the Automate floor up [HIGH - tool output, same nuspecs]. The Automate floors stay at the latest patch on each line (17.5.1, 18.5.1) because those are the only builds the security review and S1 check, and because of `CredentialHeaderNames` and `IsSensitive` (below). Releases on NuGet at 2026-10-30: Automate.Core 17.0.0 to 17.5.1 and 18.0.0 to 18.5.1; CMS latest 17.8.0 and 18.3.0 [HIGH - tool output].

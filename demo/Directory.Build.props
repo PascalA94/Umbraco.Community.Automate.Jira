@@ -37,14 +37,14 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(AutomateMajor)' == '18'">
     <AutomateVersion>18.5.1</AutomateVersion>
-    <UmbracoCmsVersion>18.3.0</UmbracoCmsVersion>
+    <UmbracoCmsVersion>18.3.2</UmbracoCmsVersion>
     <!-- Latest stable Forms 18.x on nuget.org at 2026-11-04. -->
     <UmbracoFormsVersion>18.2.2</UmbracoFormsVersion>
     <UmbracoFormsAutomateVersion>18.0.3</UmbracoFormsAutomateVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(AutomateMajor)' == '17'">
     <AutomateVersion>17.5.1</AutomateVersion>
-    <UmbracoCmsVersion>17.8.0</UmbracoCmsVersion>
+    <UmbracoCmsVersion>17.8.2</UmbracoCmsVersion>
     <!-- Latest stable Forms 17.x on nuget.org at 2026-11-04. -->
     <UmbracoFormsVersion>17.6.2</UmbracoFormsVersion>
     <UmbracoFormsAutomateVersion>17.0.3</UmbracoFormsAutomateVersion>

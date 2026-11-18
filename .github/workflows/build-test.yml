@@ -68,14 +68,17 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          # Line 19 targets net11.0 and needs the .NET 11 SDK. 17 and 18 get the newest 10.0 SDK, which is what
-          # global-json-file resolved to while global.json said latestFeature. global.json now says latestMajor so
-          # both SDKs work locally, and setup-dotnet reads latestMajor as no version, so the band is named here.
+          # Line 19 targets net11.0 and needs the .NET 11 SDK; 17 and 18 the 10.0 SDK. setup-dotnet reads global.json's
+          # latestMajor as no version, so the band is named here, and the pin step below makes dotnet use it.
           dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
           # NuGet cache keyed on the per-line lock files. Never used in publish.yml, so a release never restores
           # from a cache a PR filled.
           cache: true
           cache-dependency-path: '**/packages.*.lock.json'
+      # global.json rolls forward to the newest installed major (latestMajor, so both SDKs work locally); the runner
+      # image ships SDK 11, so without this pin lines 17 and 18 would build on it.
+      - name: Pin the SDK for this line
+        run: scripts/pin-sdk.sh ${{ matrix.line == '19' && '11' || '10' }}
 
       # Hang diagnostics for the integration tests (HangWatchdogAttribute): on a hung test the watchdog runs this
       # tool to write every thread's managed stack, then ends the test host. Exact version, outside the lock files.

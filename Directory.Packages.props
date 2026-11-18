@@ -27,7 +27,7 @@
     Transitive pins (plan Task 1a step 1, F-16). The package references them with PrivateAssets="all", so they
     fix this repo's own restore and audit but never reach consumers as open-ended dependencies: a site's own
     restore and its own vulnerability audit decide what it runs. the lowest patched version of each vulnerable package that
-    Umbraco CMS 18.3.0 / 17.8.0 and Automate bring in. Re-check on every Automate or CMS bump with
+    Umbraco CMS 18.3.2 / 17.8.2 and Automate bring in. Re-check on every Automate or CMS bump with
     scripts/vulnerable-check.sh; delete a pin once the upstream dependency has caught up (a stale pin below
     what upstream needs fails restore with NU1109, so it cannot hide).
       MessagePack 3.1.9                          GHSA-qhrr-8q5h-9q3h (moderate), fixed in 3.1.9

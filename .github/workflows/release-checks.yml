@@ -59,6 +59,10 @@ jobs:
         with:
           # Line 19 targets net11.0 and needs the .NET 11 SDK; 17 and 18 stay on 10.
           dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
+      # global.json rolls forward to the newest installed major (latestMajor, so both SDKs work locally); the runner
+      # image ships SDK 11, so without this pin lines 17 and 18 would build on it.
+      - name: Pin the SDK for this line
+        run: scripts/pin-sdk.sh ${{ matrix.line == '19' && '11' || '10' }}
       - name: Restore (locked)
         run: dotnet restore tests/Umbraco.Community.Automate.Jira.ContractTests --locked-mode -p:AutomateMajor="$LINE"
       - name: Contract tests
@@ -116,6 +120,10 @@ jobs:
           dotnet-version: ${{ matrix.line == '19' && '11.0' || '10.0' }}
           cache: true
           cache-dependency-path: '**/packages.*.lock.json'
+      # global.json rolls forward to the newest installed major (latestMajor, so both SDKs work locally); the runner
+      # image ships SDK 11, so without this pin lines 17 and 18 would build on it.
+      - name: Pin the SDK for this line
+        run: scripts/pin-sdk.sh ${{ matrix.line == '19' && '11' || '10' }}
       - name: Restore (locked)
         run: dotnet restore tests/Umbraco.Community.Automate.Jira.IntegrationTests --locked-mode -p:AutomateMajor="$LINE"
       - name: Integration tests on SQL Server

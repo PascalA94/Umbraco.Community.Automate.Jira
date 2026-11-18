@@ -13,6 +13,8 @@ Release candidate of the 19 line. Built against Umbraco 19.0.0-rc1, not yet veri
 ## Unreleased
 
 - Credential helper contract 1.0.3: test scope for Automate 19. No change for users.
+- Lines 17 and 18 need Umbraco CMS 17.8.2 or 18.3.2 or later (was 17.8.0 and 18.3.0). Those versions fix GHSA-348f-9mg8-rhv4, where member property values could be read through the Examine members index. This package does not use that index; the floor only stops it being installed next to an unpatched CMS. Upgrading does not clean an existing index: after upgrading the CMS, rebuild the Members index (Settings, Examine Management).
+- Build: CI pins the .NET SDK of each line, so lines 17 and 18 build on the 10 SDK even where a newer SDK is installed. No change for users.
 
 ## 18.0.0
 

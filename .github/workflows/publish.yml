@@ -65,11 +65,7 @@ jobs:
             echo "sdk=$sdk"
           } >> "$GITHUB_OUTPUT"
 
-      # After the tag is read, because the tag decides the SDK.
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: ${{ steps.tag.outputs.sdk }}
-
+      # Before any repository script runs: the ref must be on main and released in the changelog.
       - name: Tag is on main and in the changelog
         env:
           TAG: ${{ github.ref_name }}
@@ -78,6 +74,16 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           # Whole-line match: "## 18.0.0" must not be satisfied by "## 18.0.0-beta.1" or "## 18.0.10".
           grep -qxF "## ${TAG#v}" CHANGELOG.md || { echo "CHANGELOG.md has no '## ${TAG#v}' heading line" >&2; exit 1; }
+
+      # After the tag is read, because the tag decides the SDK.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: ${{ steps.tag.outputs.sdk }}
+      # global.json rolls forward to the newest installed major; pin the tag's SDK so a v18 tag never packs on SDK 11.
+      - name: Pin the SDK for this tag
+        env:
+          SDK: ${{ steps.tag.outputs.sdk }}
+        run: scripts/pin-sdk.sh "${SDK%%.*}"
 
       - name: Test, audit and pack every line of the tag's group
         env:

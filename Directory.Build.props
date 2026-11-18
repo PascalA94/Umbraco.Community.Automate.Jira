@@ -14,9 +14,10 @@
   <PropertyGroup Condition="'$(AutomateMajor)' == '18'">
     <AutomateVersion>18.5.1</AutomateVersion>
     <AutomateRange>[18.5.1, 19.0.0)</AutomateRange>
-    <UmbracoCmsVersion>18.3.0</UmbracoCmsVersion>
-    <UmbracoCmsRange>[18.3.0, 19.0.0)</UmbracoCmsRange>
-    <!-- CMS 18.3.0 is built against Markdig 1.4.0; 1.5.1 is HQ's pin (plan Global Constraints). -->
+    <!-- 18.3.2, not 18.3.0: GHSA-348f-9mg8-rhv4 (member property values in the members index) is fixed in 18.3.2. -->
+    <UmbracoCmsVersion>18.3.2</UmbracoCmsVersion>
+    <UmbracoCmsRange>[18.3.2, 19.0.0)</UmbracoCmsRange>
+    <!-- CMS 18.3.2 is built against Markdig 1.4.0; 1.5.1 is HQ's pin (plan Global Constraints). -->
     <MarkdigRange>[1.5.1, 2.0.0)</MarkdigRange>
     <IntegrationTestSdkVersion>18.10.1</IntegrationTestSdkVersion>
     <IntegrationMessagePackVersion>3.1.11</IntegrationMessagePackVersion>
@@ -36,9 +37,10 @@
   <PropertyGroup Condition="'$(AutomateMajor)' == '17'">
     <AutomateVersion>17.5.1</AutomateVersion>
     <AutomateRange>[17.5.1, 18.0.0)</AutomateRange>
-    <UmbracoCmsVersion>17.8.0</UmbracoCmsVersion>
-    <UmbracoCmsRange>[17.8.0, 18.0.0)</UmbracoCmsRange>
-    <!-- CMS 17.8.0 is built against Markdig 0.45.0. Forcing 1.x onto a v17 site would swap a major
+    <!-- 17.8.2, not 17.8.0: GHSA-348f-9mg8-rhv4 (member property values in the members index) is fixed in 17.8.2. -->
+    <UmbracoCmsVersion>17.8.2</UmbracoCmsVersion>
+    <UmbracoCmsRange>[17.8.2, 18.0.0)</UmbracoCmsRange>
+    <!-- CMS 17.8.2 is built against Markdig 0.45.0. Forcing 1.x onto a v17 site would swap a major
          version under the CMS's own Markdown rendering, so the 17 line stays on the CMS's 0.x line. -->
     <MarkdigRange>[0.45.0, 1.0.0)</MarkdigRange>
     <IntegrationTestSdkVersion>18.10.1</IntegrationTestSdkVersion>
