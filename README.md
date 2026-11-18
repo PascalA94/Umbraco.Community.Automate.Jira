@@ -8,7 +8,7 @@ Create Jira issues, add comments and move issues between statuses from [Umbraco 
 
 A community package, not made or supported by Umbraco HQ. It is not affiliated with, endorsed by or sponsored by Atlassian. "Jira" is a trademark of Atlassian.
 
-**Requires** Umbraco CMS 17.8+ with Umbraco Automate 17.5.1+, or Umbraco CMS 18.3+ with Umbraco Automate 18.5.1+, or Umbraco CMS 19 with Umbraco Automate 19 (release candidate, on .NET 11). Jira Cloud only (not Data Center).
+**Requires** Umbraco CMS 17.8.2+ with Umbraco Automate 17.5.1+, or Umbraco CMS 18.3.2+ with Umbraco Automate 18.5.1+, or Umbraco CMS 19 with Umbraco Automate 19 (release candidate, on .NET 11). Jira Cloud only (not Data Center). The 17 and 18 floors are the CMS releases that fix GHSA-348f-9mg8-rhv4; after upgrading from an earlier patch, rebuild the Members index (Settings, Examine Management).
 
 The 19 line is a release candidate: Built against Umbraco 19.0.0-rc1, not yet verified on 19 stable. After upgrading a site to Umbraco 19, rebuild the Umbraco Search indexes, or Find content by Jira key finds nothing.
 
@@ -55,8 +55,8 @@ Pick the package line that matches your Umbraco major. One codebase builds all t
 | Package version | Umbraco Automate | Umbraco CMS |
 |---|---|---|
 | `19.x` (release candidate) | `[19.0.0-rc1, 20.0.0)` | `[19.0.0-rc1, 20.0.0)` |
-| `18.x` | `[18.5.1, 19.0.0)` | `[18.3.0, 19.0.0)` |
-| `17.x` | `[17.5.1, 18.0.0)` | `[17.8.0, 18.0.0)` |
+| `18.x` | `[18.5.1, 19.0.0)` | `[18.3.2, 19.0.0)` |
+| `17.x` | `[17.5.1, 18.0.0)` | `[17.8.2, 18.0.0)` |
 
 ```bash
 dotnet add package Umbraco.Community.Automate.Jira --version 19.0.0-rc.*   # Umbraco 19 (release candidate)

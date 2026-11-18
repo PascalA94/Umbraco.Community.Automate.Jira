@@ -8,6 +8,6 @@ Connect Umbraco Automate to Jira Cloud.
 - **Find content by Jira key** finds the one page tied to an issue, by a property, never by name.
 - The Jira API token stays in configuration (environment variables, Key Vault or user-secrets) under a name. Automations hold only the name.
 
-Requires Umbraco 17.8+ with Automate 17.5.1+, or Umbraco 18.3+ with Automate 18.5.1+. Jira Cloud only.
+Requires Umbraco 17.8.2+ with Automate 17.5.1+, or Umbraco 18.3.2+ with Automate 18.5.1+. Jira Cloud only.
 
 A community package, not made or supported by Umbraco HQ. It is not affiliated with or endorsed by Atlassian. "Jira" is a trademark of Atlassian. Full documentation: https://github.com/PascalA94/Umbraco.Community.Automate.Jira#readme

@@ -53,7 +53,7 @@ Then add `./out` as a package source in the test site and install that exact ver
 
 ## Releases (maintainer)
 
-1. Cut the release PR from a `release/<version>` branch. Add a `## <version>` heading line to `CHANGELOG.md`. Run `release-checks` on that branch (Actions → release-checks → Run workflow). Never dispatch it on a branch holding unreviewed outside code: its contract job has the sandbox token.
+1. Check the Umbraco CMS floors in `Directory.Build.props` against `gh api /repos/umbraco/Umbraco-CMS/security-advisories`. `scripts/vulnerable-check.sh` and osv-scanner do not see advisories that live only in that repository. Cut the release PR from a `release/<version>` branch. Add a `## <version>` heading line to `CHANGELOG.md`. Run `release-checks` on that branch (Actions → release-checks → Run workflow). Never dispatch it on a branch holding unreviewed outside code: its contract job has the sandbox token.
 2. Squash-merge, then tag the merge commit. Two tag groups:
    - `v18.<minor>.<patch>[-suffix]`, for example `v18.0.0-beta.1`, packs lines 17 and 18 with that minor, patch and suffix (`18.0.0-beta.1` and `17.0.0-beta.1`).
    - `v19.<minor>.<patch>[-suffix]`, for example `v19.0.0-rc.1`, packs line 19 only.

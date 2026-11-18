@@ -1123,16 +1123,16 @@
       },
       "NPoco": {
         "type": "Transitive",
-        "resolved": "6.3.0",
-        "contentHash": "mNVmgrahPTcel15uInwawk14V8REQAcIKW8E8b4C1DbexrblZ9eV73CC8xRrTZ+IRUil1+AGjT9renl4RuyILw==",
+        "resolved": "6.4.0",
+        "contentHash": "kZDwFToR+n5+1lcIoC3Sd7Y0lfx6v+p6fNiFAqRfAuvILiR0DKO82b7VDxxLvp/8M1WSD6MPpXIUsWZ183q/UQ==",
         "dependencies": {
-          "NPoco.Abstractions": "6.3.0"
+          "NPoco.Abstractions": "6.4.0"
         }
       },
       "NPoco.Abstractions": {
         "type": "Transitive",
-        "resolved": "6.3.0",
-        "contentHash": "9TSZh796fd96UKjAm80THtKGjzhTxLuNnZCfpaFrv2PuR19mHdSrTV0fqRE9N3uaFlgXUyZfSwJmI6MPAQkvOw=="
+        "resolved": "6.4.0",
+        "contentHash": "I3NprIdc4fLqIClygnCumxvIYVDiSl2VhE1MvAr6R2SF5xcfbgbYZURAPZfXDL4lwU8xqS1e7FmsbUA4Mvrt2g=="
       },
       "OpenIddict": {
         "type": "Transitive",
@@ -2066,8 +2066,8 @@
         "dependencies": {
           "Markdig": "[1.5.1, 2.0.0)",
           "Umbraco.Automate.Core": "[18.5.1, 19.0.0)",
-          "Umbraco.Cms.Core": "[18.3.0, 19.0.0)",
-          "Umbraco.Cms.Infrastructure": "[18.3.0, 19.0.0)"
+          "Umbraco.Cms.Core": "[18.3.2, 19.0.0)",
+          "Umbraco.Cms.Infrastructure": "[18.3.2, 19.0.0)"
         }
       },
       "Markdig": {
@@ -2123,9 +2123,9 @@
       },
       "Umbraco.Cms.Core": {
         "type": "CentralTransitive",
-        "requested": "[18.3.0, 19.0.0)",
-        "resolved": "18.3.0",
-        "contentHash": "Yl5Kdd1etAO3p9NwIxN/SSdUrAg+QaMvztME1UKx9FlbHtxs0/1xy1rES03krGJy/ABnBKPiecfoyrmzFszVUA==",
+        "requested": "[18.3.2, 19.0.0)",
+        "resolved": "18.3.2",
+        "contentHash": "QbGMkKL5iHSXlcUiHWsrwApxCs1EFvVvdsLUmD2SYeo+hgZe/2usUtGQ8SFkgAQNLOBXP7L3G3oKJqzAyAvg3g==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Abstractions": "10.0.12",
           "Microsoft.Extensions.Caching.Memory": "10.0.12",
@@ -2143,9 +2143,9 @@
       },
       "Umbraco.Cms.Infrastructure": {
         "type": "CentralTransitive",
-        "requested": "[18.3.0, 19.0.0)",
-        "resolved": "18.3.0",
-        "contentHash": "5wjVbsW4MMZk5hUQxWR8xG/8M2UdgrgnavnLLZALf+z0nFSKkpt6+IM9gGwUnjypTPVewfkhlNCMKxoA1+PKXQ==",
+        "requested": "[18.3.2, 19.0.0)",
+        "resolved": "18.3.2",
+        "contentHash": "vfe0nJsiPYatmoGewst7Q0MFk0wDwYOqljBOVnC5QTN/nE+zJvgQFwgEEMK3xqmEFnyceHLee9ge5IuriYp00g==",
         "dependencies": {
           "Examine.Core": "3.10.0",
           "HtmlAgilityPack": "1.13.0",
@@ -2168,7 +2168,7 @@
           "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.12",
           "Microsoft.Extensions.Options.DataAnnotations": "10.0.12",
           "MiniProfiler.Shared": "4.5.4",
-          "NPoco": "6.3.0",
+          "NPoco": "6.4.0",
           "OpenIddict.Abstractions": "7.7.1",
           "Serilog": "4.4.0",
           "Serilog.Enrichers.Process": "3.0.0",
@@ -2183,7 +2183,7 @@
           "Serilog.Sinks.Map": "2.0.0",
           "System.Linq.Async": "7.0.1",
           "System.Security.Cryptography.Pkcs": "10.0.13",
-          "Umbraco.Cms.Core": "[18.3.0, 19.0.0)",
+          "Umbraco.Cms.Core": "[18.3.2, 19.0.0)",
           "ncrontab": "3.4.0"
         }
       }
