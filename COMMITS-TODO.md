@@ -817,3 +817,14 @@ Base `main` at `f361946`. Source: the post-release `security-audit` run on `f8f0
 - Reviews: qa-reviewer pass (found the comment dedupe gap, fixed); security-analyst first review: the creator clause alone only narrowed the lead (conditions C1 to C4); verifying review: conditions met, then case-insensitive label match and strict changelog paging added (RED then GREEN).
 - Not verified here (live Jira): release-checks contract tests exercise the new search and changelog read; a sandbox check that an issue's creator cannot be changed, that JQL `labels` ignores case, and that a non-author can set a property on their own comment.
 - Sample gitleaks rules (audit leads 6 and 7, Low): fixed on `fix/gitleaks-sample-rules`. The JSON rule anchors on a Credentials key followed by `"` or `:` and finds the token key in the same block, so later entries and colon-joined keys are caught; `scripts/check-gitleaks-sample.sh` gains 4 caught and 1 ignored fixture (RED with the old rule: 4 misses). Dependabot alerts and security updates were switched on 2026-11-18.
+
+## Milestone commit: retake README and Marketplace screenshots (branch docs/screenshots-refresh)
+
+- **Check first:** `git status --short`. Expect only `assets/screenshots/0*.png`, `README.md`, `umbraco-marketplace.json` (and this file). `Directory.Build.props` (PackageTags) was modified by something other than the screenshot session: leave it out unless you meant it. No secrets, `.env` or local settings.
+- **Run:**
+  ```bash
+  git add assets/screenshots README.md umbraco-marketplace.json COMMITS-TODO.md
+  git commit -m "docs: retake screenshots"
+  git log -1
+  ```
+- **Note:** a README or Marketplace change reaches NuGet only on the next release.

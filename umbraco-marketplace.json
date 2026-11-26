@@ -25,15 +25,15 @@
     "Screenshots": [
         {
             "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/01-automation-designer.png",
-            "Caption": "An automation that creates a Jira issue when a page is published."
+            "Caption": "An automation that creates a Jira issue when a page is published, with the Acme Jira connection listed in the sidebar."
         },
         {
             "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/02-create-issue-retry.png",
-            "Caption": "The Create Jira issue step, set to retry, so a create whose response was lost is retried without a second issue."
+            "Caption": "The Create Jira issue step set to retry up to 3 times, so a create whose response was lost is retried without a second issue."
         },
         {
             "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/03-create-issue-fields.png",
-            "Caption": "Project, issue type, summary and description for the new issue."
+            "Caption": "The summary and a populated description for the new issue, with the description format set to plain text."
         },
         {
             "ImageUrl": "https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/04-jira-webhook-trigger.png",
