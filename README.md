@@ -33,6 +33,7 @@ Starting automations from Jira (webhooks) is optional: see [Inbound webhooks](#i
 ## Contents
 
 - [Quick start](#quick-start)
+- [Screenshots](#screenshots)
 - [Install](#install)
 - [Credentials](#credentials)
 - [What the package does and does not protect](#what-the-package-does-and-does-not-protect)
@@ -47,6 +48,24 @@ Starting automations from Jira (webhooks) is optional: see [Inbound webhooks](#i
 - [Personal data (GDPR)](#personal-data-gdpr)
 - [Configuration reference](#configuration-reference)
 - [Security](#security)
+
+## Screenshots
+
+![An automation that creates a Jira issue when a page is published, with the Acme Jira connection listed in the sidebar.](https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/01-automation-designer.png)
+
+*An automation that creates a Jira issue when a page is published, with the Acme Jira connection listed in the sidebar.*
+
+![The Create Jira issue step set to retry up to 3 times, so a create whose response was lost is retried without a second issue.](https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/02-create-issue-retry.png)
+
+*The Create Jira issue step set to retry up to 3 times, so a create whose response was lost is retried without a second issue.*
+
+![The summary and a populated description for the new issue, with the description format set to plain text.](https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/03-create-issue-fields.png)
+
+*The summary and a populated description for the new issue, with the description format set to plain text.*
+
+![A webhook trigger that only accepts deliveries signed with your Jira webhook secret.](https://raw.githubusercontent.com/PascalA94/Umbraco.Community.Automate.Jira/main/assets/screenshots/04-jira-webhook-trigger.png)
+
+*A webhook trigger that only accepts deliveries signed with your Jira webhook secret.*
 
 ## Install
 

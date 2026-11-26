@@ -98,7 +98,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>logo-128.png</PackageIcon>
-    <PackageTags>umbraco umbraco-marketplace umbraco-automate jira atlassian</PackageTags>
+    <PackageTags>umbraco umbraco-marketplace umbracopackage umbraco-automate automate jira atlassian</PackageTags>
     <!-- The Marketplace does not list prerelease-only packages, so the 19 release candidate carries no Marketplace tag. Restore it at 19.0.0 stable. -->
     <PackageTags Condition="'$(AutomateMajor)' == '19'">$(PackageTags.Replace('umbraco-marketplace ', ''))</PackageTags>
     <NeutralLanguage>en-GB</NeutralLanguage>
